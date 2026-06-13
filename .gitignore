@@ -1,0 +1,9 @@
+*.xlsx
+*.xls
+*_scan/
+*full_scan/
+european_scan/
+__pycache__/
+.symbols_cache.json
+*.pyc
+.DS_Store
