@@ -7,3 +7,8 @@ __pycache__/
 .symbols_cache.json
 *.pyc
 .DS_Store
+
+# transient enrichment artifacts (not for reference)
+*.log
+industry_cache.json
+industry_cache.json.tmp
