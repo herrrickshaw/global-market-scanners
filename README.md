@@ -2,6 +2,10 @@
 
 Multi-market equity scanner applying Darvas Box breakout detection + Piotroski F-Score + Coffee Can screening across five major global markets.
 
+> **Scope:** this repo is **stock-market screening only**. Retail-outlet (fuel
+> station) data monitoring and highway/coverage heatmaps live in a separate repo:
+> [`retail-outlet-monitoring`](https://github.com/herrrickshaw/retail-outlet-monitoring).
+
 ## Markets covered
 
 | Script | Market | Universe | Data source |
