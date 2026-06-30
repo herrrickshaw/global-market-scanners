@@ -39,12 +39,15 @@ A stock must pass all three simultaneously:
 pip install -r requirements.txt
 ```
 
-Pinned in [`requirements.txt`](requirements.txt). The five scanners are
-**self-contained** — each runs standalone with no shared local modules.
-(Japan/Korea/Europe are identical to their counterparts in
-[`quant-stock-analysis`](https://github.com/herrrickshaw/quant-stock-analysis);
-that repo additionally carries *system-integrated* US/India variants with extra
-ML and strategy sheets.)
+Pinned in [`requirements.txt`](requirements.txt).
+
+The **US and India scanners are the full system-integrated versions** — they
+emit extra sheets (Magic Formula, Golden Crossover, Multi-Screen Hits, and
+**ML Bullish/Bearish**) and are backed by helper modules `stock_utils.py`,
+`nse_data_fetcher.py`, `market_data_cache.py`, and `ml_signal_engine.py`.
+The **Japan/Korea/Europe scanners are self-contained**. The ML signal engine is
+market-agnostic — see [`ml_viability.py`](ml_viability.py) for the cross-market
+5-year viability backtest.
 
 ## Usage
 

@@ -18,8 +18,13 @@ kabupy                   # Japan: JPX/TSE universe (unpinned upstream)
 pykrx                    # South Korea: KRX/Naver (unpinned upstream)
 # Europe (Euro Stoxx 50) uses yfinance only — no extra lib.
 
+# --- ML signal engine (US/India scanners + cross-market viability) ---
+scikit-learn==1.6.1      # Ridge/Linear regression directional signal
+scipy==1.13.1
+
 # Notes:
 #  - Python 3.9+; on macOS some NSE history libs need browser cookies,
 #    so the scanners use yfinance for OHLC history (see DATA_AND_MODULES).
-#  - The richer, system-integrated US/India scanners (extra ML / strategy
-#    sheets) live in the quant-stock-analysis repo and pull additional deps.
+#  - US/India scanners are the full system-integrated versions (ML + strategy
+#    sheets), backed by helper modules stock_utils / nse_data_fetcher /
+#    market_data_cache / ml_signal_engine. JP/KR/EU scanners are self-contained.
