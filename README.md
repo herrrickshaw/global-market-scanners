@@ -36,8 +36,15 @@ A stock must pass all three simultaneously:
 ## Install
 
 ```bash
-pip install yfinance pandas openpyxl requests nsepython bseindia kabupy pykrx
+pip install -r requirements.txt
 ```
+
+Pinned in [`requirements.txt`](requirements.txt). The five scanners are
+**self-contained** — each runs standalone with no shared local modules.
+(Japan/Korea/Europe are identical to their counterparts in
+[`quant-stock-analysis`](https://github.com/herrrickshaw/quant-stock-analysis);
+that repo additionally carries *system-integrated* US/India variants with extra
+ML and strategy sheets.)
 
 ## Usage
 

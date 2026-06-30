@@ -1,0 +1,25 @@
+# requirements.txt — global-market-scanners
+# Standalone 5-market scanners + the industry/peer dataset tooling.
+
+# --- Core data ---
+pandas==2.3.3
+numpy==2.0.2
+pyarrow==21.0.0          # parquet read/write (dataset outputs)
+openpyxl==3.1.5          # styled Excel workbook export
+
+# --- Market data (shared) ---
+yfinance==1.2.0          # OHLC + fundamentals, all markets
+requests==2.32.5
+
+# --- Market-specific universe/data libs ---
+nsepython==2.97          # India: NSE universe + quotes
+bseindia==1.1            # India: BSE listings
+kabupy                   # Japan: JPX/TSE universe (unpinned upstream)
+pykrx                    # South Korea: KRX/Naver (unpinned upstream)
+# Europe (Euro Stoxx 50) uses yfinance only — no extra lib.
+
+# Notes:
+#  - Python 3.9+; on macOS some NSE history libs need browser cookies,
+#    so the scanners use yfinance for OHLC history (see DATA_AND_MODULES).
+#  - The richer, system-integrated US/India scanners (extra ML / strategy
+#    sheets) live in the quant-stock-analysis repo and pull additional deps.
