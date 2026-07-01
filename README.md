@@ -77,6 +77,7 @@ classification → fundamentals on breakout candidates → styled Excel export**
 
 **Guides**
 - [User Guide](USER_GUIDE.md) — end-to-end workflows for every capability
+- [Security & Integrity](SECURITY.md) — signed commits, checksum manifest, branch protection
 - [Architecture](ARCHITECTURE.md) — mapped to the Modern Data Architecture Blueprint
 - [Architecture Map](ARCHITECTURE_MAP.md) — data-flow + tier + ER diagrams (Mermaid)
 - [Data Schema](SCHEMA.md) — data dictionary for every store
