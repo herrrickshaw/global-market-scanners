@@ -65,6 +65,13 @@ def _tech(c: pd.Series, h: pd.Series, low: pd.Series, v: pd.Series, mkt: pd.Seri
     pdi = 100 * plus.rolling(14).mean() / tr; mdi = 100 * minus.rolling(14).mean() / tr
     adx = (100 * (pdi - mdi).abs() / (pdi + mdi).replace(0, np.nan)).rolling(14).mean().iloc[-1]
     volr = (v.iloc[-1] / v.rolling(20).mean().iloc[-1]) if v.rolling(20).mean().iloc[-1] else 1.0
+    # MFI(14) — Money Flow Index (Trendlyne's TechRSIMFIMACD uses it): volume-weighted RSI
+    tp = (h + low + c) / 3
+    rmf = tp * v
+    pos = rmf.where(tp.diff() > 0, 0.0).rolling(14).sum()
+    neg = rmf.where(tp.diff() < 0, 0.0).rolling(14).sum().replace(0, np.nan)
+    mfi = (100 - 100 / (1 + pos / neg)).iloc[-1]
+    sma50_above = bool(dma50.iloc[-1] > dma200.iloc[-1]) if pd.notna(dma200.iloc[-1]) else False
     # beta vs equal-weight market
     r = c.pct_change(); m = mkt.reindex(r.index)
     beta = (r.tail(200).cov(m.tail(200)) / m.tail(200).var()) if m.tail(200).var() else np.nan
@@ -80,9 +87,11 @@ def _tech(c: pd.Series, h: pd.Series, low: pd.Series, v: pd.Series, mkt: pd.Seri
     ]
     M = float(np.mean(subs))
     return {"M": round(M, 1), "rsi": round(float(rsi), 1) if pd.notna(rsi) else None,
+            "mfi": round(float(mfi), 1) if pd.notna(mfi) else None,
             "adx": round(float(adx), 1) if pd.notna(adx) else None,
             "dist_52w": round(float(dist52), 1), "above_200dma": above200,
-            "golden_cross": gc, "vol_ratio": round(float(volr), 2),
+            "golden_cross": gc, "sma50_above_200": sma50_above,
+            "macd_bull": bool(macd_hist > 0), "vol_ratio": round(float(volr), 2),
             "beta": round(float(beta), 2) if pd.notna(beta) else None}
 
 
@@ -91,6 +100,10 @@ SCREENS = {
     "high_momentum":     lambda r: r["M"] >= 75,
     "golden_crossover":  lambda r: r["golden_cross"],
     "uptrend_quality":   lambda r: r["above_200dma"] and 50 <= (r["rsi"] or 0) <= 70 and (r["adx"] or 0) >= 20,
+    # Trendlyne public "TechRSIMFIMACD" technical screener
+    "trendlyne_technical": lambda r: 50 <= (r["rsi"] or 0) <= 70 and (r["mfi"] or 0) >= 50 and r["macd_bull"],
+    # Trendlyne public "sma50-above-sma200" moving-average screener
+    "sma_golden":        lambda r: r["sma50_above_200"] and r["above_200dma"],
 }
 
 
@@ -129,14 +142,16 @@ def main():
     conn = sqlite3.connect(args.db); conn.execute("PRAGMA journal_mode=DELETE;")
     conn.execute("DROP TABLE IF EXISTS dvm_global")
     conn.execute("""CREATE TABLE dvm_global(market TEXT, ticker TEXT, M REAL, rsi REAL,
-        adx REAL, dist_52w REAL, above_200dma INT, golden_cross INT, vol_ratio REAL, beta REAL)""")
+        mfi REAL, adx REAL, dist_52w REAL, above_200dma INT, golden_cross INT,
+        sma50_above_200 INT, macd_bull INT, vol_ratio REAL, beta REAL)""")
 
     summary = []
     for mkt in markets:
         rows, hits = process_market(mkt, args.screen)
-        conn.executemany("INSERT INTO dvm_global VALUES (?,?,?,?,?,?,?,?,?,?)",
-            [(r["market"], r["ticker"], r["M"], r["rsi"], r["adx"], r["dist_52w"],
-              int(r["above_200dma"]), int(r["golden_cross"]), r["vol_ratio"], r["beta"]) for r in rows])
+        conn.executemany("INSERT INTO dvm_global VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            [(r["market"], r["ticker"], r["M"], r["rsi"], r["mfi"], r["adx"], r["dist_52w"],
+              int(r["above_200dma"]), int(r["golden_cross"]), int(r["sma50_above_200"]),
+              int(r["macd_bull"]), r["vol_ratio"], r["beta"]) for r in rows])
         conn.commit()
         avgM = round(float(np.mean([r["M"] for r in rows])), 1) if rows else 0
         summary.append((mkt, len(rows), len(hits), avgM))
