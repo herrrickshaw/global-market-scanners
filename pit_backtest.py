@@ -23,6 +23,8 @@ Usage:
 """
 
 import argparse
+import glob
+import os
 import sqlite3
 import sys
 import warnings
@@ -44,6 +46,17 @@ UNIVERSE = ("AAPL MSFT NVDA AMZN GOOGL META AVGO TSLA JPM V UNH XOM JNJ WMT MA P
             "HON GS LOW SPGI BKNG MS BLK AXP SBUX PLD MDT GILD ADP TJX VRTX C SYK "
             "REGN CB MMC LMT BMY MDLZ ADI CI SO ETN ZTS DUK BSX SLB MO BDX ITW WM "
             "AON CME EQIX MU FDX NSC PNC USB EMR GD FCX APD ORLY MCO PH").split()
+
+
+def load_scan_universe(limit=None):
+    """Full US scan universe (all are SEC filers)."""
+    hits = sorted(glob.glob(os.path.expanduser(
+        "~/Downloads/data/us_full_scan/**/us_full_scan_*.xlsx"), recursive=True))
+    if not hits:
+        return []
+    syms = pd.ExcelFile(hits[-1]).parse("All_Stocks")["Symbol"].astype(str).str.strip()
+    syms = [s for s in syms.tolist() if s and s != "nan"]
+    return syms[:limit] if limit else syms
 
 
 def darvas_breakout(close: pd.Series, t) -> bool:
@@ -71,24 +84,37 @@ def metrics(rets: list) -> dict:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--years", type=int, default=5)
-    ap.add_argument("--limit", type=int, default=len(UNIVERSE))
+    ap.add_argument("--universe", choices=["builtin", "scan"], default="builtin",
+                    help="builtin=~100 large caps; scan=full US scan universe (~6200)")
+    ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--db", default="pit_backtest.db")
     args = ap.parse_args()
 
     import yfinance as yf
-    tickers = UNIVERSE[:args.limit]
-    print(f"Downloading {len(tickers)} tickers ({args.years}y)…", file=sys.stderr, flush=True)
-    data = yf.download(tickers, period=f"{args.years}y", auto_adjust=True,
-                       progress=False, group_by="ticker", threads=True)
+    if args.universe == "scan":
+        tickers = load_scan_universe(args.limit)
+    else:
+        tickers = UNIVERSE[:(args.limit or len(UNIVERSE))]
+    print(f"Downloading {len(tickers)} tickers ({args.years}y) in batches…",
+          file=sys.stderr, flush=True)
     closes = {}
-    for t in tickers:
+    for i in range(0, len(tickers), 250):
+        batch = tickers[i:i + 250]
         try:
-            df = data[t] if isinstance(data.columns, pd.MultiIndex) else data
-            s = df["Close"].dropna()
-            if len(s) > BREAKOUT_LB + 20:
-                closes[t] = s
+            data = yf.download(batch, period=f"{args.years}y", auto_adjust=True,
+                               progress=False, group_by="ticker", threads=True)
         except Exception:
             continue
+        for t in batch:
+            try:
+                df = data[t] if isinstance(data.columns, pd.MultiIndex) else data
+                s = df["Close"].dropna()
+                if len(s) > BREAKOUT_LB + 20:
+                    closes[t] = s
+            except Exception:
+                continue
+        print(f"  downloaded {min(i+250,len(tickers))}/{len(tickers)}; usable={len(closes)}",
+              file=sys.stderr, flush=True)
     print(f"{len(closes)} usable series", file=sys.stderr, flush=True)
 
     # monthly rebalance dates = first trading day of each month, need next month for return

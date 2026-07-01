@@ -37,6 +37,37 @@ _UA = {"User-Agent": "market-research umashankartd1991@gmail.com"}
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "edgar_cache")
 os.makedirs(CACHE_DIR, exist_ok=True)
 
+# Only these us-gaap concepts are ever read (see as_of). Pruning companyfacts to
+# these — 10-K/FY entries only — shrinks each cached filing from ~4MB to ~30KB,
+# so the full ~6k US universe caches in ~190MB instead of ~27GB.
+NEEDED_CONCEPTS = {
+    "NetIncomeLoss", "RevenueFromContractWithCustomerExcludingAssessedTax",
+    "Revenues", "SalesRevenueNet", "Assets", "Liabilities", "StockholdersEquity",
+    "AssetsCurrent", "LiabilitiesCurrent", "GrossProfit",
+    "NetCashProvidedByUsedInOperatingActivities",
+    "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+    "CommonStockSharesOutstanding", "WeightedAverageNumberOfSharesOutstandingBasic",
+    "PaymentsToAcquirePropertyPlantAndEquipment",
+}
+
+
+def _prune(facts: dict) -> dict:
+    """Keep only NEEDED_CONCEPTS, and within them only 10-K/FY entries."""
+    gaap = facts.get("us-gaap", {})
+    out = {}
+    for c in NEEDED_CONCEPTS:
+        node = gaap.get(c)
+        if not node:
+            continue
+        units = {}
+        for unit, vals in node.get("units", {}).items():
+            keep = [r for r in vals if r.get("form") == "10-K" and r.get("fp") == "FY"]
+            if keep:
+                units[unit] = keep
+        if units:
+            out[c] = {"units": units}
+    return {"us-gaap": out}
+
 
 @lru_cache(maxsize=1)
 def _ticker_cik() -> Dict[str, str]:
@@ -64,7 +95,7 @@ def _load_facts(ticker: str) -> Optional[dict]:
         time.sleep(0.12)  # SEC fair-access
         if r.status_code != 200:
             return None
-        facts = r.json().get("facts", {})
+        facts = _prune(r.json().get("facts", {}))   # keep only needed concepts (~30KB)
         with open(path, "w") as fh:
             json.dump(facts, fh)
         return facts
