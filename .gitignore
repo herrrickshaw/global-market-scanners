@@ -13,7 +13,7 @@ __pycache__/
 industry_cache.json
 industry_cache.json.tmp
 
-# raw per-ticker viability DB (large); only the compact summary DB is committed
-viability.db
-viability.db-journal
+# raw per-ticker viability DBs (large); only the compact *_summary DBs are committed
+viability*.db
+!viability_summary*.db
 *.db-journal

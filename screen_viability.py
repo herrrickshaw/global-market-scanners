@@ -111,15 +111,16 @@ def screens_for(df):
     }
 
 
-def eval_ticker(df, include_ml=False, ml_engine=None):
+def eval_ticker(df, horizon=FWD, clip=30, include_ml=False, ml_engine=None):
     """Return list of per-screen summary dicts for one ticker, or [] if too short."""
-    if df is None or len(df) < MIN_BARS:
+    if df is None or len(df) < MIN_BARS + horizon:
         return []
     close = df["Close"].astype(float)
-    # Realised 5d forward return %, clipped to ±30% to stop penny-stock / illiquid
-    # spikes (and split glitches) from dominating the mean — a >30% move in a
-    # week is outlier noise for this purpose. hit_pct is unaffected (sign only).
-    fwd = (close.pct_change(FWD).shift(-FWD) * 100).clip(-30, 30)
+    # Realised forward return % over `horizon` trading days, clipped to ±`clip`% to
+    # stop penny-stock / illiquid spikes (and split glitches) from dominating the
+    # mean. The clip scales with sqrt(horizon), so a monthly window isn't over-cut.
+    # hit_pct is unaffected (sign only).
+    fwd = (close.pct_change(horizon).shift(-horizon) * 100).clip(-clip, clip)
     base = float(fwd.mean())
     rows = []
     sig = screens_for(df)
@@ -129,12 +130,12 @@ def eval_ticker(df, include_ml=False, ml_engine=None):
             from ml_signal_engine import compute_features, z_score_normalise, \
                 FEATURE_NAMES, LOOKBACK, TRAIN_WINDOW, BULLISH_THRESHOLD
             feats = compute_features(df)
-            tgt = close.pct_change(FWD).shift(-FWD).reindex(feats.index) * 100
+            tgt = close.pct_change(horizon).shift(-horizon).reindex(feats.index) * 100
             al = feats.join(tgt.rename("t"), how="inner").dropna()
             bull = pd.Series(False, index=df.index)
             if len(al) > TRAIN_WINDOW + LOOKBACK + 30:
                 fdf, tser = al[FEATURE_NAMES], al["t"]
-                for ti in range(TRAIN_WINDOW + LOOKBACK, len(al) - FWD, 10):
+                for ti in range(TRAIN_WINDOW + LOOKBACK, len(al) - horizon, 10):
                     X, y = ml_engine._make_sequences(fdf.iloc[ti-TRAIN_WINDOW:ti],
                                                      tser.iloc[ti-TRAIN_WINDOW:ti])
                     if len(X) < 20:
@@ -208,6 +209,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--markets", nargs="*", default=list(SCAN_GLOBS))
     ap.add_argument("--years", type=int, default=5)
+    ap.add_argument("--horizon", type=int, default=FWD,
+                    help="forward-return horizon in trading days (5=weekly, 21=monthly)")
     ap.add_argument("--limit", type=int, default=None, help="cap tickers per market")
     ap.add_argument("--db", default="viability.db")
     ap.add_argument("--batch", type=int, default=40, help="yfinance download batch size")
@@ -259,7 +262,8 @@ def main():
                     df = df.dropna(how="all")
                 except Exception:
                     df = None
-                for r in eval_ticker(df, args.include_ml, ml_engine):
+                clip = round(30 * (args.horizon / FWD) ** 0.5)   # scale outlier clip with sqrt(horizon)
+                for r in eval_ticker(df, args.horizon, clip, args.include_ml, ml_engine):
                     rows.append((market, t, r["screen"], r["n_signals"],
                                  r["avg_fwd5d"], r["hit_pct"], r["baseline"], r["edge"]))
                 donerows.append((market, t))
