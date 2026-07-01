@@ -140,8 +140,8 @@ def main():
             if e0 is None or e1 is None or e0 >= e1:
                 continue
             fwd = (s.loc[e1] / s.loc[e0] - 1) * 100
-            if pd.isna(fwd):
-                continue                       # skip gaps (was NaN-contaminating the mean)
+            if not np.isfinite(fwd):
+                continue                       # skip gaps / zero-price inf (was poisoning the mean)
             fwd_by_tkr[tkr] = fwd
             held.append(fwd)
             if darvas_breakout(s, e0):

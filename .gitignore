@@ -23,3 +23,4 @@ edgar_cache/
 edgar_facts.db
 screen_reco.db
 dvm_scores.db
+dvm_global.db
