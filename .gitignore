@@ -21,3 +21,4 @@ viability*.db
 # SEC EDGAR fundamentals cache (compact SQLite, rebuilt on demand)
 edgar_cache/
 edgar_facts.db
+screen_reco.db

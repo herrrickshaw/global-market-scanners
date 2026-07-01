@@ -140,6 +140,8 @@ def main():
             if e0 is None or e1 is None or e0 >= e1:
                 continue
             fwd = (s.loc[e1] / s.loc[e0] - 1) * 100
+            if pd.isna(fwd):
+                continue                       # skip gaps (was NaN-contaminating the mean)
             fwd_by_tkr[tkr] = fwd
             held.append(fwd)
             if darvas_breakout(s, e0):
@@ -163,9 +165,10 @@ def main():
                 if cc:
                     selC.append(tkr)
         for arm, sel in (("A_darvas", selA), ("B_darvas_F7", selB), ("C_triple_hit", selC)):
-            if sel:
-                arms[arm].append(float(np.mean([fwd_by_tkr[x] for x in sel])) - US_COST)
-                picks_log[arm].append(len(sel))
+            vals = [fwd_by_tkr[x] for x in sel if x in fwd_by_tkr]
+            if vals:
+                arms[arm].append(float(np.mean(vals)) - US_COST)
+                picks_log[arm].append(len(vals))
         print(f"  {d}: breakouts={len(selA)} F7={len(selB)} triple={len(selC)}",
               file=sys.stderr, flush=True)
 
