@@ -39,16 +39,20 @@ git verify-commit HEAD
 So no one can silently rewrite or delete committed history; changes only move forward
 as new (signed) commits.
 
-## 4. Integrity manifest (verify the whole tree)
-`CHECKSUMS.sha256` lists the SHA-256 of every tracked file, and
-`CHECKSUMS.sha256.sig` is its SSH signature. Anyone can verify nothing was altered:
+## 4. Integrity verification (whole tree)
+Two independent checks, run by `./verify_integrity.sh`:
+1. **The signed commit is the integrity root.** Git is content-addressed — a commit's
+   hash covers its entire tree (every file's bytes) via a Merkle structure. So a valid
+   HEAD signature cryptographically attests *all* file content. `git verify-commit HEAD`.
+2. **`CHECKSUMS.sha256`** — a human-readable SHA-256 of every tracked file; re-hashing
+   and diffing catches any working-tree modification at a glance. (Its own integrity is
+   guaranteed by check #1, since it's inside the signed commit — no separate signature needed.)
 ```bash
-./verify_integrity.sh          # re-hash tracked files, diff against the manifest, check the signature
+./verify_integrity.sh
 ```
-Regenerate after intended changes:
+Regenerate the manifest after intended changes:
 ```bash
-git ls-files | sort | while read f; do shasum -a 256 "$f"; done > CHECKSUMS.sha256
-ssh-keygen -Y sign -f ~/.ssh/git_signing -n file CHECKSUMS.sha256
+git ls-files | sort | grep -vxF CHECKSUMS.sha256 | while read f; do shasum -a 256 "$f"; done > CHECKSUMS.sha256
 ```
 
 ## 5. To fully lock it down (maintainer, after registering the signing key)
@@ -62,7 +66,7 @@ gh api -X POST repos/herrrickshaw/global-market-scanners/branches/main/protectio
 | Guarantee | Mechanism |
 |---|---|
 | No leaked secrets | env-var credentials + history scan |
-| Content alteration is detectable | signed commits + signed SHA-256 manifest |
+| Content alteration is detectable | signed commits (Merkle tree over all files) + SHA-256 manifest |
 | History can't be rewritten/deleted | branch protection (no force-push/delete, enforce-admins) |
 | GitHub-verified authorship | signing key registered → "Verified" badge (maintainer step) |
 

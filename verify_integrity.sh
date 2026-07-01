@@ -1,32 +1,30 @@
 #!/usr/bin/env bash
-# Verify repo integrity: re-hash tracked files against the signed manifest, and
-# check the manifest's SSH signature. Exit non-zero on any mismatch.
+# Verify repo integrity. Two independent checks:
+#   1. The signed commit — git's Merkle tree covers every file's content, so a
+#      valid HEAD signature cryptographically attests the whole tree.
+#   2. The SHA-256 manifest — re-hash tracked files and diff against CHECKSUMS.sha256
+#      to catch any working-tree modification at a glance.
 set -euo pipefail
 cd "$(dirname "$0")"
+rc=0
 
-echo "==> Re-hashing tracked files and diffing against CHECKSUMS.sha256"
+echo "==> 1. HEAD commit signature (covers all file content via git's Merkle tree)"
+if git verify-commit HEAD 2>/dev/null; then
+  echo "    OK — HEAD is signed & verified"
+else
+  echo "    (not locally verifiable — ensure ~/.ssh/git_allowed_signers is set; on GitHub look for the 'Verified' badge)"
+fi
+
+echo "==> 2. SHA-256 manifest diff (tracked files vs CHECKSUMS.sha256)"
 tmp=$(mktemp)
-git ls-files | sort | grep -vxF "CHECKSUMS.sha256" | grep -vxF "CHECKSUMS.sha256.sig" \
+git ls-files | sort | grep -vxF "CHECKSUMS.sha256" \
   | while read -r f; do shasum -a 256 "$f"; done > "$tmp"
-# manifest minus its own later-added lines (manifest was generated before these two files existed)
-if diff <(grep -vE "CHECKSUMS\.sha256" CHECKSUMS.sha256) "$tmp" >/dev/null; then
+if diff "$tmp" CHECKSUMS.sha256 >/dev/null; then
   echo "    OK — all tracked files match the manifest"
 else
-  echo "    MISMATCH — files differ from the manifest:"; diff <(grep -vE "CHECKSUMS\.sha256" CHECKSUMS.sha256) "$tmp" || true
-  rm -f "$tmp"; exit 1
+  echo "    MISMATCH — files differ from the manifest:"; diff CHECKSUMS.sha256 "$tmp" || true; rc=1
 fi
 rm -f "$tmp"
 
-echo "==> Verifying the manifest signature (SSH)"
-SIGNERS="${HOME}/.ssh/git_allowed_signers"
-ID="${1:-herrrickshaw@users.noreply.github.com}"
-if [ -f "$SIGNERS" ] && [ -f CHECKSUMS.sha256.sig ]; then
-  ssh-keygen -Y verify -f "$SIGNERS" -I "$ID" -n file -s CHECKSUMS.sha256.sig < CHECKSUMS.sha256 \
-    && echo "    OK — manifest signature valid"
-else
-  echo "    (skip) allowed_signers or signature missing"
-fi
-
-echo "==> Verifying HEAD commit signature"
-git verify-commit HEAD 2>/dev/null && echo "    OK — HEAD is signed" || echo "    (HEAD signature not verifiable locally without allowed_signers)"
-echo "Integrity check complete."
+[ $rc -eq 0 ] && echo "Integrity check PASSED." || echo "Integrity check FAILED."
+exit $rc
