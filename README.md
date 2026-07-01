@@ -78,6 +78,8 @@ classification → fundamentals on breakout candidates → styled Excel export**
 **Guides**
 - [User Guide](USER_GUIDE.md) — end-to-end workflows for every capability
 - [Architecture](ARCHITECTURE.md) — mapped to the Modern Data Architecture Blueprint
+- [Architecture Map](ARCHITECTURE_MAP.md) — data-flow + tier + ER diagrams (Mermaid)
+- [Data Schema](SCHEMA.md) — data dictionary for every store
 - [Data warehouse (DuckDB)](WAREHOUSE.md) — one SQL surface to filter/depict across everything
 - [Data backbone (Cassandra/Kafka/Flink)](INFRA.md) · [CDC deployment](cdc/CDC_DEPLOYMENT.md)
 
