@@ -22,6 +22,13 @@ pykrx                    # South Korea: KRX/Naver (unpinned upstream)
 scikit-learn==1.6.1      # Ridge/Linear regression directional signal
 scipy==1.13.1
 
+# --- Streaming / storage frameworks (speed up repeated runs) ---
+# Python CLIENTS only. The SERVERS are system installs (macOS: `brew install
+# cassandra kafka apache-flink`, started via `brew services`). See INFRA.md.
+cassandra-driver==3.29.3 # OHLC/fundamentals cache in Cassandra (market_store.py)
+confluent-kafka==2.14.2  # Kafka producer/consumer stream pipeline (stream_pipeline.py)
+apache-flink             # PyFlink jobs (flink_screens.py); optional/heavy, needs JDK
+
 # Notes:
 #  - Python 3.9+; on macOS some NSE history libs need browser cookies,
 #    so the scanners use yfinance for OHLC history (see DATA_AND_MODULES).

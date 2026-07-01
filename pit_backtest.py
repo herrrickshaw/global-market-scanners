@@ -92,33 +92,26 @@ def main():
     ap.add_argument("--db", default="pit_backtest.db")
     args = ap.parse_args()
 
-    import yfinance as yf
     if args.universe == "scan":
         tickers = load_scan_universe(args.limit)
     else:
         tickers = UNIVERSE[:(args.limit or len(UNIVERSE))]
-    print(f"Downloading {len(tickers)} tickers ({args.years}y) in batches…",
-          file=sys.stderr, flush=True)
+
+    # OHLC via the Cassandra-backed cache — served locally after the first run
+    # (falls back to yfinance automatically if Cassandra is down).
+    from market_store import cached_download
+    ohlc = cached_download(tickers, years=args.years)
     closes, liq = {}, {}
-    for i in range(0, len(tickers), 250):
-        batch = tickers[i:i + 250]
+    for t, df in ohlc.items():
         try:
-            data = yf.download(batch, period=f"{args.years}y", auto_adjust=True,
-                               progress=False, group_by="ticker", threads=True)
+            s = df["Close"].dropna()
+            if len(s) > BREAKOUT_LB + 20:
+                closes[t] = s
+                dv = (df["Close"] * df["Volume"]).dropna()   # daily $-volume
+                liq[t] = float(dv.tail(252).median())        # median over last ~1y
         except Exception:
             continue
-        for t in batch:
-            try:
-                df = data[t] if isinstance(data.columns, pd.MultiIndex) else data
-                s = df["Close"].dropna()
-                if len(s) > BREAKOUT_LB + 20:
-                    closes[t] = s
-                    dv = (df["Close"] * df["Volume"]).dropna()   # daily $-volume
-                    liq[t] = float(dv.tail(252).median())        # median over last ~1y
-            except Exception:
-                continue
-        print(f"  downloaded {min(i+250,len(tickers))}/{len(tickers)}; usable={len(closes)}",
-              file=sys.stderr, flush=True)
+    print(f"{len(closes)} usable series", file=sys.stderr, flush=True)
 
     # ── liquidity filter ──────────────────────────────────────────────────────
     n_before = len(closes)
