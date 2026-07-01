@@ -9,8 +9,9 @@ across 19 markets, and a Cassandra/Kafka/Flink data backbone.
 > separate [`retail-outlet-monitoring`](https://github.com/herrrickshaw/retail-outlet-monitoring)
 > and [`fuel-retail-outlets`](https://github.com/herrrickshaw/fuel-retail-outlets) repos.
 
-📓 **New here? Open the [Colab notebook](notebooks/DVM_Global_Colab.ipynb)** for a
-zero-install tour, or read the **[User Guide](USER_GUIDE.md)**.
+📓 **New here?** Open the zero-install tour in Colab, or read the **[User Guide](USER_GUIDE.md)**.
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/herrrickshaw/global-market-scanners/blob/main/notebooks/DVM_Global_Colab.ipynb)
 
 ---
 
