@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""
+pit_fundamentals.py
+-------------------
+Point-in-time US fundamentals from SEC EDGAR — the values as they were KNOWN on a
+given historical date (only filings with filed <= date), so a backtest never leaks
+restated numbers from the future.
+
+Builds on sec_fundamentals.py's concept mappings, adds:
+  as_of(ticker, date)        -> strategy-ready fundamentals dict, PIT
+  piotroski_asof(ticker, dt) -> (F_score 0-9, detail dict)
+  coffeecan_asof(ticker, dt) -> (bool pass, detail dict)   [US-adapted]
+
+companyfacts JSON is cached to ./edgar_cache/CIK*.json so a 5-year monthly
+backtest over hundreds of tickers hits disk, not the SEC.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import time
+import warnings
+from datetime import date as _date
+from functools import lru_cache
+from typing import Dict, List, Optional, Tuple
+
+
+def _d(s: str) -> _date:
+    return _date.fromisoformat(s)
+
+import requests
+
+warnings.filterwarnings("ignore")
+
+_UA = {"User-Agent": "market-research umashankartd1991@gmail.com"}
+CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "edgar_cache")
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+
+@lru_cache(maxsize=1)
+def _ticker_cik() -> Dict[str, str]:
+    r = requests.get("https://www.sec.gov/files/company_tickers.json",
+                     headers=_UA, timeout=30)
+    r.raise_for_status()
+    return {v["ticker"].upper(): str(v["cik_str"]).zfill(10) for v in r.json().values()}
+
+
+def _load_facts(ticker: str) -> Optional[dict]:
+    """companyfacts for a ticker, cached to disk (raw 'facts' node)."""
+    cik = _ticker_cik().get(ticker.upper())
+    if not cik:
+        return None
+    path = os.path.join(CACHE_DIR, f"CIK{cik}.json")
+    if os.path.exists(path):
+        try:
+            with open(path) as fh:
+                return json.load(fh)
+        except Exception:
+            pass
+    try:
+        r = requests.get(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json",
+                         headers=_UA, timeout=30)
+        time.sleep(0.12)  # SEC fair-access
+        if r.status_code != 200:
+            return None
+        facts = r.json().get("facts", {})
+        with open(path, "w") as fh:
+            json.dump(facts, fh)
+        return facts
+    except Exception:
+        return None
+
+
+def _annual_asof(facts: dict, concept: str, asof: str, n: int = 5) -> List[float]:
+    """Annual (10-K/FY) values for a concept KNOWN as of `asof` (filed <= asof).
+    For each fiscal period-end keep the latest version filed on/before asof
+    (i.e. most-recent restatement that was public by then). Newest period first."""
+    node = facts.get("us-gaap", {}).get(concept)
+    if not node:
+        return []
+    best: Dict[str, Tuple[str, float]] = {}  # end -> (filed, val)
+    for unit_vals in node.get("units", {}).values():
+        for r in unit_vals:
+            if r.get("form") != "10-K" or r.get("fp") != "FY":
+                continue
+            filed, val, end, start = r.get("filed"), r.get("val"), r.get("end"), r.get("start")
+            if val is None or not filed or not end or filed > asof:
+                continue
+            # Duration concepts (income/revenue/cashflow) carry 'start': keep only
+            # ~annual periods (≈365d), dropping quarterly frames mis-tagged fp=FY.
+            # Instantaneous balance-sheet concepts have no 'start' — accept as-is
+            # (10-K snapshots are fiscal-year-end only).
+            if start:
+                days = (_d(end) - _d(start)).days
+                if not (350 <= days <= 385):
+                    continue
+            if end not in best or filed > best[end][0]:
+                best[end] = (filed, val)
+    return [best[k][1] for k in sorted(best, reverse=True)][:n]
+
+
+def _first(facts, asof, *concepts, n=5):
+    for c in concepts:
+        v = _annual_asof(facts, c, asof, n)
+        if v:
+            return v
+    return []
+
+
+def _r(a, b):
+    return (a / b) if (a is not None and b not in (None, 0)) else None
+
+
+def _g(lst, i=0):
+    return lst[i] if lst and len(lst) > i else None
+
+
+def as_of(ticker: str, date: str) -> Dict:
+    """PIT fundamentals dict for a US ticker as known on `date` (YYYY-MM-DD)."""
+    f = _load_facts(ticker)
+    if not f:
+        return {}
+    ni     = _first(f, date, "NetIncomeLoss")
+    rev    = _first(f, date, "RevenueFromContractWithCustomerExcludingAssessedTax",
+                    "Revenues", "SalesRevenueNet")
+    assets = _first(f, date, "Assets")
+    liab   = _first(f, date, "Liabilities")
+    equity = _first(f, date, "StockholdersEquity")
+    cur_a  = _first(f, date, "AssetsCurrent")
+    cur_l  = _first(f, date, "LiabilitiesCurrent")
+    cfo    = _first(f, date, "NetCashProvidedByUsedInOperatingActivities",
+                    "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations")
+    gp     = _first(f, date, "GrossProfit")
+    shares = _first(f, date, "CommonStockSharesOutstanding",
+                    "WeightedAverageNumberOfSharesOutstandingBasic")
+    capex  = _first(f, date, "PaymentsToAcquirePropertyPlantAndEquipment")
+
+    roe_hist = []
+    for i in range(min(len(ni), len(equity))):
+        if equity[i]:
+            roe_hist.append(ni[i] / equity[i] * 100)
+
+    return {
+        "ni": ni, "rev": rev, "assets": assets, "equity": equity,
+        "cfo": _g(cfo), "capex": _g(capex),
+        "roa": _r(_g(ni), _g(assets)), "roa_prev": _r(_g(ni, 1), _g(assets, 1)),
+        "cur": _r(_g(cur_a), _g(cur_l)), "cur_prev": _r(_g(cur_a, 1), _g(cur_l, 1)),
+        "lev": _r(_g(liab), _g(assets)), "lev_prev": _r(_g(liab, 1), _g(assets, 1)),
+        "gm": _r(_g(gp), _g(rev)), "gm_prev": _r(_g(gp, 1), _g(rev, 1)),
+        "at": _r(_g(rev), _g(assets)), "at_prev": _r(_g(rev, 1), _g(assets, 1)),
+        "shares": _g(shares), "shares_prev": _g(shares, 1),
+        "de": _r(_g(liab), _g(equity)), "roe_hist": roe_hist,
+    }
+
+
+def piotroski_asof(ticker: str, date: str) -> Tuple[Optional[int], dict]:
+    d = as_of(ticker, date)
+    if not d or _g(d["ni"]) is None or _g(d["assets"]) is None:
+        return None, {}
+    s, det = 0, {}
+    tests = {
+        "roa_pos":   (d["roa"] is not None and d["roa"] > 0),
+        "cfo_pos":   (d["cfo"] is not None and d["cfo"] > 0),
+        "d_roa":     (d["roa"] is not None and d["roa_prev"] is not None and d["roa"] > d["roa_prev"]),
+        "accrual":   (d["cfo"] is not None and _g(d["ni"]) is not None and d["cfo"] > _g(d["ni"])),
+        "d_lev":     (d["lev"] is not None and d["lev_prev"] is not None and d["lev"] < d["lev_prev"]),
+        "d_cur":     (d["cur"] is not None and d["cur_prev"] is not None and d["cur"] > d["cur_prev"]),
+        "no_dilute": (d["shares"] is not None and d["shares_prev"] is not None and d["shares"] <= d["shares_prev"] * 1.01),
+        "d_margin":  (d["gm"] is not None and d["gm_prev"] is not None and d["gm"] > d["gm_prev"]),
+        "d_turn":    (d["at"] is not None and d["at_prev"] is not None and d["at"] > d["at_prev"]),
+    }
+    for k, v in tests.items():
+        det[k] = bool(v); s += int(bool(v))
+    return s, det
+
+
+def coffeecan_asof(ticker: str, date: str, mktcap: Optional[float] = None) -> Tuple[bool, dict]:
+    """US-adapted Coffee-Can: avg ROE>15%, positive earnings every year, positive
+    FCF, revenue growth, leverage in check, and (if given) market cap > $1B."""
+    d = as_of(ticker, date)
+    if not d or len(d["ni"]) < 3:
+        return False, {}
+    roe = d["roe_hist"]
+    fcf = (d["cfo"] - d["capex"]) if (d["cfo"] is not None and d["capex"] is not None) else None
+    det = {
+        "avg_roe>15":     bool(roe) and (sum(roe) / len(roe) > 15),
+        "earnings_all+":  all(x is not None and x > 0 for x in d["ni"][:5]),
+        "fcf_pos":        fcf is not None and fcf > 0,
+        "rev_growth":     _g(d["rev"]) is not None and _g(d["rev"], -1) is not None and _g(d["rev"]) > _g(d["rev"], -1),
+        "leverage_ok":    d["lev"] is not None and d["lev"] < 0.6,
+        "cap>1B":         (mktcap is None) or (mktcap > 1e9),
+    }
+    return all(det.values()), det
+
+
+if __name__ == "__main__":
+    import sys
+    tkr = sys.argv[1] if len(sys.argv) > 1 else "AAPL"
+    for dt in ["2019-06-01", "2021-06-01", "2023-06-01", "2025-06-01"]:
+        f, fd = piotroski_asof(tkr, dt)
+        cc, cd = coffeecan_asof(tkr, dt, mktcap=2e12)
+        print(f"{tkr} as of {dt}:  F-score={f}  coffee-can={cc}")
+        print(f"    F detail: {fd}")

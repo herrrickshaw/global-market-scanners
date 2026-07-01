@@ -17,3 +17,6 @@ industry_cache.json.tmp
 viability*.db
 !viability_summary*.db
 *.db-journal
+
+# SEC EDGAR companyfacts cache (~400MB); rebuilt on demand by pit_fundamentals.py
+edgar_cache/
