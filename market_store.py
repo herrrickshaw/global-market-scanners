@@ -22,6 +22,8 @@ Schema (keyspace `market`):
 
 from __future__ import annotations
 
+import json
+import os
 import sys
 import warnings
 from datetime import date, timedelta
@@ -31,8 +33,29 @@ import pandas as pd
 warnings.filterwarnings("ignore")
 
 KEYSPACE = "market"
+CDC_TOPIC = "ohlc.cdc"           # blueprint: mutations -> Kafka -> Flink
 _session = None
 _prepared = {}
+_producer = None
+
+
+def _emit_cdc(ticker: str, n_bars: int, latest):
+    """Application-level Change Data Capture: publish a mutation event to Kafka on
+    write, mirroring the blueprint's Cassandra->CDC->Kafka dataflow without the
+    commit-log CDC machinery. Opt-in via MARKET_STORE_CDC=1; best-effort."""
+    global _producer
+    if os.environ.get("MARKET_STORE_CDC") != "1":
+        return
+    try:
+        if _producer is None:
+            from confluent_kafka import Producer
+            _producer = Producer({"bootstrap.servers": "localhost:9092"})
+        _producer.produce(CDC_TOPIC, key=ticker, value=json.dumps(
+            {"op": "upsert", "table": "ohlc_bars", "ticker": ticker,
+             "n_bars": int(n_bars), "latest": str(latest)}))
+        _producer.poll(0)
+    except Exception:
+        pass  # CDC is a side-channel; never block the write
 
 
 def _connect():
@@ -48,6 +71,13 @@ def _connect():
             "CREATE KEYSPACE IF NOT EXISTS %s WITH replication="
             "{'class':'SimpleStrategy','replication_factor':1}" % KEYSPACE)
         s.set_keyspace(KEYSPACE)
+        # tunable consistency (blueprint): single node -> LOCAL_ONE; raise to
+        # LOCAL_QUORUM when running RF>=3 across a cluster.
+        try:
+            from cassandra import ConsistencyLevel
+            s.default_consistency_level = ConsistencyLevel.LOCAL_ONE
+        except Exception:
+            pass
         s.execute("""CREATE TABLE IF NOT EXISTS ohlc_bars(
             ticker text, d date, o double, h double, l double, c double, v double,
             PRIMARY KEY (ticker, d))""")
@@ -94,6 +124,8 @@ def put_ohlc(ticker: str, df: pd.DataFrame):
                      float(r.get("High", r.get("Close"))), float(r.get("Low", r.get("Close"))),
                      float(r["Close"]), float(r.get("Volume", 0) or 0)))
     execute_concurrent_with_args(s, ins, args, concurrency=64)
+    if args:                                  # emit CDC mutation event (opt-in)
+        _emit_cdc(ticker, len(args), df.index.max().date() if hasattr(df.index.max(), "date") else None)
 
 
 def get_ohlc(ticker: str) -> pd.DataFrame:
