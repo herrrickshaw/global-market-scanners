@@ -1,71 +1,107 @@
-# Global Market Scanners
+# Global Market Scanners & Multi-Market Quant Platform
 
-Multi-market equity scanner applying Darvas Box breakout detection + Piotroski F-Score + Coffee Can screening across five major global markets.
+A research platform for **multi-market equity screening, backtesting, and factor
+research** — spanning classic technical/fundamental scanners, a point-in-time
+backtesting engine, a hybrid ML screen-discovery layer, Trendlyne-style DVM scoring
+across 19 markets, and a Cassandra/Kafka/Flink data backbone.
 
-> **Scope:** this repo is **stock-market screening only**. Retail-outlet (fuel
-> station) data monitoring and highway/coverage heatmaps live in a separate repo:
-> [`retail-outlet-monitoring`](https://github.com/herrrickshaw/retail-outlet-monitoring).
+> **Scope:** stock-market research only. Retail-outlet / highway data lives in the
+> separate [`retail-outlet-monitoring`](https://github.com/herrrickshaw/retail-outlet-monitoring)
+> and [`fuel-retail-outlets`](https://github.com/herrrickshaw/fuel-retail-outlets) repos.
 
-## Markets covered
+📓 **New here? Open the [Colab notebook](notebooks/DVM_Global_Colab.ipynb)** for a
+zero-install tour, or read the **[User Guide](USER_GUIDE.md)**.
 
-| Script | Market | Universe | Data source |
+---
+
+## What's inside
+
+| Area | Modules | What it does |
+|---|---|---|
+| **Scanners** | `full_{us,indian,japan,korea,european}_market_scan.py` | Full-universe Darvas + Piotroski + Coffee-Can scans → styled Excel |
+| **ML signal** | `ml_signal_engine.py`, `ml_viability.py` | Ridge directional signal + 5-year cross-market viability |
+| **Screen viability** | `screen_viability.py`, `apply_costs.py` | Backtest the screener.in technical screens, net of tax+brokerage |
+| **Point-in-time backtest** | `pit_fundamentals.py`, `pit_backtest.py` | Lookahead-free Triple-Hit backtest (SEC EDGAR, filed-date filtered) |
+| **Factor research** | `factor_research.py` | Test Markowitz/Sharpe/Fama/Fama-French as falsifiable proposals |
+| **ML screen discovery** | `ml_screen_discovery.py` | Supervised → Unsupervised (new screens) → RL-from-screeners |
+| **DVM / Trendlyne** | `dvm_engine.py`, `dvm_global.py`, `fundamentals_global.py`, `dvm_composite.py` | Durability/Valuation/Momentum scoring + GGG classification across 19 markets |
+| **Dataset** | `build_industry_parquet.py`, `enrich_industries.py`, `unlisted_enrichment.py` | Industry/peer parquet + unlisted-firm enrichment |
+| **Data backbone** | `market_store.py` (Cassandra), `stream_pipeline.py` (Kafka), `flink_screens.py`, `cdc/` | Persistent OHLC cache, streaming, CDC |
+| **Utilities** | `market_holidays.py`, `market_data_cache.py`, `stock_utils.py` | Trading calendars, caching, helpers |
+
+---
+
+## Quick start
+
+```bash
+pip install -r requirements.txt
+
+# 1) Scan a full market  ->  styled Excel workbook
+python full_indian_market_scan.py --top 200
+
+# 2) Trendlyne-style technical screen across all 19 markets (local data, no network)
+python dvm_global.py --screen trendlyne_technical
+
+# 3) Global DVM composite ranking (GGG/GGB/BBG)
+python fundamentals_global.py --top 40      # source fundamentals once (cached)
+python dvm_composite.py                       # fuse momentum + fundamentals -> ranking
+
+# 4) Point-in-time US backtest (does the fundamental gate add value?)
+python pit_backtest.py --universe scan --years 5
+```
+
+See the **[User Guide](USER_GUIDE.md)** for the full workflow and every module.
+
+---
+
+## The core scan pipeline
+
+Each scanner runs the same 5 stages: **universe fetch → bulk OHLC → Darvas Box
+classification → fundamentals on breakout candidates → styled Excel export**.
+
+**Triple Hit** = Darvas breakout **+** Piotroski F-Score ≥ 7/9 **+** Coffee-Can pass
+(revenue CAGR > 10%, avg ROCE > 15%, D/E < 1, positive earnings every year, positive FCF).
+
+| Scanner | Market | Universe | Data source |
 |---|---|---|---|
-| `full_us_market_scan.py` | USA (NYSE + NASDAQ) | ~5,400 stocks | yfinance |
-| `full_european_market_scan.py` | Europe (Euro Stoxx 50) | 50 stocks | yfinance |
-| `full_indian_market_scan.py` | India (NSE + BSE) | ~4,600 stocks | nsepython + bseindia + yfinance |
-| `full_japan_market_scan.py` | Japan (TSE Prime + Standard) | ~3,600 stocks | kabupy (JPX) + yfinance |
-| `full_korea_market_scan.py` | South Korea (KOSPI + KOSDAQ) | ~2,600 stocks | pykrx (KRX/Naver) + yfinance |
+| `full_us_market_scan.py` | USA (NYSE + NASDAQ) | ~5,400 | yfinance + EDGAR |
+| `full_indian_market_scan.py` | India (NSE + BSE) | ~4,600 | nsepython + bseindia + yfinance |
+| `full_japan_market_scan.py` | Japan (TSE) | ~3,600 | kabupy + yfinance |
+| `full_korea_market_scan.py` | Korea (KOSPI + KOSDAQ) | ~2,600 | pykrx + yfinance |
+| `full_european_market_scan.py` | Europe (Euro Stoxx 50) | 50 | yfinance |
 
-## Pipeline
+---
 
-Each scanner runs the same 5-stage pipeline:
+## Documentation index
 
-1. **Universe fetch** — pull the full equity list for the market
-2. **Bulk OHLC download** — 3-month price history for all tickers
-3. **Darvas Box screen** — classify every stock as `BREAKOUT_BUY`, `BREAKDOWN_SELL`, or `IN_BOX`
-4. **Fundamental scan** (breakout candidates only) — Piotroski F-Score + Coffee Can
-5. **Excel export** — 4-sheet styled workbook: All Stocks, Darvas Signals, Fundamentals, Triple Hits
+**Guides**
+- [User Guide](USER_GUIDE.md) — end-to-end workflows for every capability
+- [Architecture](ARCHITECTURE.md) — mapped to the Modern Data Architecture Blueprint
+- [Data backbone (Cassandra/Kafka/Flink)](INFRA.md) · [CDC deployment](cdc/CDC_DEPLOYMENT.md)
 
-## Triple Hit criteria
+**Screening & scoring**
+- [Screener.in coverage](SCREENS.md) · [Global DVM / Trendlyne](GLOBAL_DVM.md)
+- [Global fundamental screen](FUNDAMENTAL_SCREEN.md) · [Global DVM composite](DVM_COMPOSITE.md)
+- [ML screen discovery](ML_SCREEN_DISCOVERY.md)
 
-A stock must pass all three simultaneously:
-- **Darvas breakout** — price closes above the confirmed box top
-- **Piotroski F-Score ≥ 7/9** — strong financial health
-- **Coffee Can pass** — Revenue CAGR > 10%, avg ROCE > 15%, D/E < 1, positive earnings every year, positive FCF
+**Backtesting & research**
+- [Screen viability results](SCREEN_VIABILITY_RESULTS.md) · [Net of cost](NET_OF_COST.md)
+- [Point-in-time fundamentals scope](SCOPE_PIT_FUNDAMENTALS.md) · [PIT backtest results](PIT_BACKTEST_RESULTS.md)
+- [ML viability](ML_VIABILITY.md) · [Factor research](FACTOR_RESEARCH.md)
 
-## Install
+---
+
+## Install & requirements
 
 ```bash
 pip install -r requirements.txt
 ```
+Python 3.9+. Core: pandas, numpy, pyarrow, scikit-learn, yfinance, openpyxl. Market
+libs: nsepython, bseindia, kabupy, pykrx. Optional data backbone: cassandra-driver,
+confluent-kafka, apache-flink (servers via `brew install cassandra kafka apache-flink`).
+See [`requirements.txt`](requirements.txt) and [INFRA.md](INFRA.md).
 
-Pinned in [`requirements.txt`](requirements.txt).
-
-The **US and India scanners are the full system-integrated versions** — they
-emit extra sheets (Magic Formula, Golden Crossover, Multi-Screen Hits, and
-**ML Bullish/Bearish**) and are backed by helper modules `stock_utils.py`,
-`nse_data_fetcher.py`, `market_data_cache.py`, and `ml_signal_engine.py`.
-The **Japan/Korea/Europe scanners are self-contained**. The ML signal engine is
-market-agnostic — see [`ml_viability.py`](ml_viability.py) for the cross-market
-5-year viability backtest.
-
-## Usage
-
-```bash
-python full_indian_market_scan.py                    # full run
-python full_indian_market_scan.py --top 200          # first 200 tickers
-python full_indian_market_scan.py --no-scans         # Darvas only, skip fundamentals
-python full_japan_market_scan.py --workers 10
-python full_korea_market_scan.py --kospi-only
-python full_european_market_scan.py --top 10
-```
-
-## Sample results (13 Jun 2026)
-
-| Market | Scanned | Breakouts | Breakdowns | Triple Hits |
-|---|---|---|---|---|
-| USA | 5,406 | 1,818 | 242 | 0 |
-| Europe | 50 | 27 | 1 | 3 (Ferrari, ASML, Hermès) |
-| India | 4,587 | 757 | 255 | 14 |
-| Japan | 3,566 | 798 | 276 | 2 (東テク, Fast Retailing) |
-| Korea | 2,606 | 640 | 20 | 2 (JW생명과학, 아이비김영) |
+## Notes
+Not investment advice — research only. Backtests are pre-slippage unless stated;
+fundamentals are point-in-time (US/EDGAR) or current-snapshot (global/yfinance) as
+noted per module.
