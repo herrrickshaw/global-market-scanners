@@ -18,5 +18,6 @@ viability*.db
 !viability_summary*.db
 *.db-journal
 
-# SEC EDGAR companyfacts cache (~400MB); rebuilt on demand by pit_fundamentals.py
+# SEC EDGAR fundamentals cache (compact SQLite, rebuilt on demand)
 edgar_cache/
+edgar_facts.db

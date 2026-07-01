@@ -87,6 +87,8 @@ def main():
     ap.add_argument("--universe", choices=["builtin", "scan"], default="builtin",
                     help="builtin=~100 large caps; scan=full US scan universe (~6200)")
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--min-dollar-vol", type=float, default=2e6,
+                    help="liquidity filter: min median daily $-volume (default $2M)")
     ap.add_argument("--db", default="pit_backtest.db")
     args = ap.parse_args()
 
@@ -97,7 +99,7 @@ def main():
         tickers = UNIVERSE[:(args.limit or len(UNIVERSE))]
     print(f"Downloading {len(tickers)} tickers ({args.years}y) in batches…",
           file=sys.stderr, flush=True)
-    closes = {}
+    closes, liq = {}, {}
     for i in range(0, len(tickers), 250):
         batch = tickers[i:i + 250]
         try:
@@ -111,11 +113,18 @@ def main():
                 s = df["Close"].dropna()
                 if len(s) > BREAKOUT_LB + 20:
                     closes[t] = s
+                    dv = (df["Close"] * df["Volume"]).dropna()   # daily $-volume
+                    liq[t] = float(dv.tail(252).median())        # median over last ~1y
             except Exception:
                 continue
         print(f"  downloaded {min(i+250,len(tickers))}/{len(tickers)}; usable={len(closes)}",
               file=sys.stderr, flush=True)
-    print(f"{len(closes)} usable series", file=sys.stderr, flush=True)
+
+    # ── liquidity filter ──────────────────────────────────────────────────────
+    n_before = len(closes)
+    closes = {t: s for t, s in closes.items() if liq.get(t, 0) >= args.min_dollar_vol}
+    print(f"liquidity filter (median $-vol >= ${args.min_dollar_vol:,.0f}/day): "
+          f"{n_before} -> {len(closes)} tradeable names", file=sys.stderr, flush=True)
 
     # monthly rebalance dates = first trading day of each month, need next month for return
     all_idx = sorted(set().union(*[s.index for s in closes.values()]))

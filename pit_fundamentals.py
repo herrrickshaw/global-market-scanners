@@ -17,25 +17,66 @@ backtest over hundreds of tickers hits disk, not the SEC.
 
 from __future__ import annotations
 
+import glob
 import json
 import os
+import sqlite3
 import time
 import warnings
 from datetime import date as _date
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
+import requests
+
 
 def _d(s: str) -> _date:
     return _date.fromisoformat(s)
 
-import requests
 
 warnings.filterwarnings("ignore")
 
 _UA = {"User-Agent": "market-research umashankartd1991@gmail.com"}
-CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "edgar_cache")
-os.makedirs(CACHE_DIR, exist_ok=True)
+HERE = os.path.dirname(os.path.abspath(__file__))
+CACHE_DIR = os.path.join(HERE, "edgar_cache")     # legacy JSON cache (migrated in)
+EDGAR_DB = os.path.join(HERE, "edgar_facts.db")   # compact single-file cache
+
+# One normalised SQLite table replaces thousands of JSON files: no per-file
+# overhead, no repeated JSON keys -> far smaller and queryable.
+_conn = sqlite3.connect(EDGAR_DB)
+_conn.execute("PRAGMA journal_mode=DELETE;")
+_conn.execute("PRAGMA synchronous=NORMAL;")
+_conn.executescript("""
+  CREATE TABLE IF NOT EXISTS facts(
+    cik TEXT, concept TEXT, unit TEXT, end TEXT, start TEXT, filed TEXT, val REAL);
+  CREATE INDEX IF NOT EXISTS ix_facts_cik ON facts(cik);
+  CREATE TABLE IF NOT EXISTS fetched(cik TEXT PRIMARY KEY);
+""")
+_conn.commit()
+
+
+def _store(cik: str, facts: dict):
+    rows = []
+    for concept, node in facts.get("us-gaap", {}).items():
+        for unit, vals in node.get("units", {}).items():
+            for r in vals:
+                rows.append((cik, concept, unit, r.get("end"), r.get("start"),
+                             r.get("filed"), r.get("val")))
+    _conn.executemany("INSERT INTO facts VALUES (?,?,?,?,?,?,?)", rows)
+    _conn.execute("INSERT OR REPLACE INTO fetched VALUES (?)", (cik,))
+    _conn.commit()
+
+
+def _read(cik: str) -> Optional[dict]:
+    if not _conn.execute("SELECT 1 FROM fetched WHERE cik=?", (cik,)).fetchone():
+        return None
+    gaap: Dict[str, dict] = {}
+    for concept, unit, end, start, filed, val in _conn.execute(
+            "SELECT concept,unit,end,start,filed,val FROM facts WHERE cik=?", (cik,)):
+        gaap.setdefault(concept, {"units": {}})["units"].setdefault(unit, []).append(
+            {"form": "10-K", "fp": "FY", "end": end, "start": start,
+             "filed": filed, "val": val})
+    return {"us-gaap": gaap}
 
 # Only these us-gaap concepts are ever read (see as_of). Pruning companyfacts to
 # these — 10-K/FY entries only — shrinks each cached filing from ~4MB to ~30KB,
@@ -77,27 +118,46 @@ def _ticker_cik() -> Dict[str, str]:
     return {v["ticker"].upper(): str(v["cik_str"]).zfill(10) for v in r.json().values()}
 
 
+_MIGRATED = False
+
+
+def _migrate_json():
+    """One-time import of any legacy edgar_cache/*.json into the SQLite cache."""
+    global _MIGRATED
+    _MIGRATED = True
+    if not os.path.isdir(CACHE_DIR):
+        return
+    for p in glob.glob(os.path.join(CACHE_DIR, "CIK*.json")):
+        cik = os.path.basename(p)[3:-5]
+        if _conn.execute("SELECT 1 FROM fetched WHERE cik=?", (cik,)).fetchone():
+            continue
+        try:
+            _store(cik, _prune(json.load(open(p))))
+        except Exception:
+            pass
+
+
+@lru_cache(maxsize=8192)
 def _load_facts(ticker: str) -> Optional[dict]:
-    """companyfacts for a ticker, cached to disk (raw 'facts' node)."""
+    """Pruned companyfacts for a ticker, from the compact SQLite cache."""
+    if not _MIGRATED:
+        _migrate_json()
     cik = _ticker_cik().get(ticker.upper())
     if not cik:
         return None
-    path = os.path.join(CACHE_DIR, f"CIK{cik}.json")
-    if os.path.exists(path):
-        try:
-            with open(path) as fh:
-                return json.load(fh)
-        except Exception:
-            pass
+    cached = _read(cik)
+    if cached is not None:
+        return cached
     try:
         r = requests.get(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json",
                          headers=_UA, timeout=30)
         time.sleep(0.12)  # SEC fair-access
         if r.status_code != 200:
-            return None
-        facts = _prune(r.json().get("facts", {}))   # keep only needed concepts (~30KB)
-        with open(path, "w") as fh:
-            json.dump(facts, fh)
+            _conn.execute("INSERT OR REPLACE INTO fetched VALUES (?)", (cik,))  # negative-cache
+            _conn.commit()
+            return {"us-gaap": {}}
+        facts = _prune(r.json().get("facts", {}))
+        _store(cik, facts)
         return facts
     except Exception:
         return None
