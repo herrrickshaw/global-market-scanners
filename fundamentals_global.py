@@ -52,7 +52,18 @@ def _cache():
     c.commit(); return c
 
 
+def _fin(x):
+    """None for non-finite (yfinance returns inf for e.g. negative-earnings P/E)."""
+    if x is None:
+        return None
+    try:
+        return x if np.isfinite(x) else None
+    except TypeError:
+        return None
+
+
 def _norm_de(x):
+    x = _fin(x)
     if x is None:
         return None
     return x / 100 if x > 10 else x            # yfinance gives D/E as % sometimes (memory note)
@@ -67,7 +78,7 @@ def fetch_one(ticker, retries=4):
                 raise ValueError("empty")
             roe = i.get("returnOnEquity"); roa = i.get("returnOnAssets")
             return ticker, dict(
-                pe=i.get("trailingPE"), pb=i.get("priceToBook"),
+                pe=_fin(i.get("trailingPE")), pb=_fin(i.get("priceToBook")),
                 roe=(roe * 100 if roe is not None else None),
                 roa=(roa * 100 if roa is not None else None),
                 de=_norm_de(i.get("debtToEquity")),

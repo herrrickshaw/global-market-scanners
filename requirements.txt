@@ -35,3 +35,6 @@ apache-flink             # PyFlink jobs (flink_screens.py); optional/heavy, need
 #  - US/India scanners are the full system-integrated versions (ML + strategy
 #    sheets), backed by helper modules stock_utils / nse_data_fetcher /
 #    market_data_cache / ml_signal_engine. JP/KR/EU scanners are self-contained.
+
+# --- Analytical warehouse ---
+duckdb==1.4.5           # DuckDB SQL layer over parquets + attached SQLite (warehouse.py)

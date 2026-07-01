@@ -123,6 +123,17 @@ python stream_pipeline.py demo                       # Kafka produce+consume rou
 ```
 Continuous CDC (Cassandra → Debezium → Kafka): see [cdc/CDC_DEPLOYMENT.md](cdc/CDC_DEPLOYMENT.md).
 
+## 11. Data warehouse (DuckDB) — filter & depict across everything
+One SQL surface over all sources (7.7M+ OHLC rows + all result tables), no ETL.
+
+```bash
+python warehouse.py --show markets                 # OHLC coverage per market
+python warehouse.py --show ggg_global              # global GGG Strong Performers
+python warehouse.py --filter "c.code='GGG' AND f.roe>15 AND f.de<1 AND c.M>=75"
+python warehouse.py --sql "SELECT market, count(*) FROM ohlc GROUP BY 1"
+```
+Update = just re-run the producers; views reflect the live files. See [WAREHOUSE.md](WAREHOUSE.md).
+
 ## 10. Trading calendars
 Skip non-trading days to cut processing time (US/India/Japan/Korea/Europe).
 
