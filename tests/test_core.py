@@ -583,5 +583,57 @@ def test_factor_premia_annualises():
     assert prem.loc[0, "ann_mean%"] == pytest.approx(0.0004 * 252 * 100, abs=0.5)
 
 
+# ── hft_selection.py (HFT-archetype picker from daily OHLC) ────────────────────
+def test_efficiency_ratio_trend_vs_chop():
+    from hft_selection import efficiency_ratio
+    assert efficiency_ratio([1, 2, 3, 4, 5]) == pytest.approx(1.0)        # pure trend
+    assert efficiency_ratio([1, 2, 1, 2, 1]) == pytest.approx(0.0)        # pure chop
+    assert efficiency_ratio([1, 3, 2, 4, 3]) == pytest.approx(2 / 6)      # net 2 / travel 6
+
+
+def test_daily_range_and_avg():
+    from hft_selection import daily_range_pct, avg_range
+    r = daily_range_pct([11, 12], [9, 10], [10, 11])
+    assert r[0] == pytest.approx(0.2) and r[1] == pytest.approx(2 / 11)
+    assert avg_range([11, 12], [9, 10], [10, 11]) == pytest.approx((0.2 + 2 / 11) / 2)
+
+
+def test_corwin_schultz_wider_range_higher_spread():
+    from hft_selection import corwin_schultz_spread
+    tight = corwin_schultz_spread([10.05, 10.05], [10.00, 10.00])
+    wide = corwin_schultz_spread([10.60, 10.55], [10.00, 10.05])
+    assert wide >= tight >= 0                                             # more high-low => wider spread
+
+
+def test_lag1_autocorr_sign():
+    from hft_selection import lag1_autocorr
+    assert lag1_autocorr([1, -1, 1, -1, 1, -1]) < 0                       # alternating => reversion
+    assert lag1_autocorr([1, 2, 3, 4, 5, 6]) > 0                          # trending => persistence
+
+
+def test_ou_half_life_trend_is_infinite():
+    from hft_selection import ou_half_life
+    assert ou_half_life([1, 2, 3, 4, 5, 6]) == np.inf                     # not mean-reverting
+    # smooth AR(1) reversion toward 10 (phi=0.6, so b=-0.4) -> finite half-life
+    smooth = [12.0, 11.2, 10.72, 10.432, 10.2592, 10.1555, 10.0933, 10.056, 10.0336]
+    hl = ou_half_life(smooth)
+    assert np.isfinite(hl) and hl > 0
+
+
+def test_archetype_scores_route_names_correctly():
+    from hft_selection import archetype_scores
+    feat = pd.DataFrame({
+        "ticker": ["MM", "SA", "LAT"],
+        "avg_range%": [0.3, 3.0, 3.0], "cs_spread": [0.001, 0.01, 0.01],
+        "range_stability": [0.001, 0.02, 0.02], "eff_ratio": [0.05, 0.1, 0.98],
+        "ret_autocorr": [0.0, -0.7, 0.6], "vol_autocorr": [0.1, 0.1, 0.9],
+        "half_life": [30.0, 0.5, np.inf],
+    })
+    s = archetype_scores(feat).set_index("ticker")
+    assert s["market_making"].idxmax() == "MM"                           # tight/stable/low-tox
+    assert s["stat_arb"].idxmax() == "SA"                                # strong mean reversion
+    assert s["latency"].idxmax() == "LAT"                                # persistent/predictable
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

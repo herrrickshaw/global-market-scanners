@@ -29,6 +29,7 @@ across 19 markets, and a Cassandra/Kafka/Flink data backbone.
 | **PEAD factor** | `pead_factor.py` | Post-earnings-announcement drift (the scout's top gap) — price-based event study + drift signal |
 | **Liquidity factor** | `liquidity_factor.py` | Amihud illiquidity + liquidity premium (scout gap #2) — capacity/tradeability score |
 | **Data sources & benchmark** | `data_sources.py`, `benchmark.py` | Per-market public factor libraries; fetches real Ken French factors + validates our quality tilt |
+| **HFT selection** | `hft_selection.py` | 4 HFT archetypes (market-making/stat-arb/latency/ETF-arb) as a Tier-1 picker from daily OHLC |
 | **ML screen discovery** | `ml_screen_discovery.py` | Supervised → Unsupervised (new screens) → RL-from-screeners |
 | **DVM / Trendlyne** | `dvm_engine.py`, `dvm_global.py`, `fundamentals_global.py`, `dvm_composite.py` | Durability/Valuation/Momentum scoring + GGG classification across 19 markets |
 | **Decision layer** | `portfolio.py`, `risk.py`, `meta_screen.py`, `sector_rotation.py`, `alerts.py`, `unlisted_valuation.py` | Signals → constrained portfolios, risk/VaR, ensemble conviction, sector rotation, alerts, private-firm comps |
@@ -111,6 +112,7 @@ classification → fundamentals on breakout candidates → styled Excel export**
 - [Liquidity factor](LIQUIDITY.md) — Amihud illiquidity + liquidity premium; scout gap #2 closed
 - [Data sources](DATA_SOURCES.md) — per-market public factor libraries (AQR/Ken French/IIMA IFFM); what the quality paper names
 - [Benchmark](BENCHMARK.md) — fetches real Ken French factors and validates our quality tilt against them (−HML, +Mom)
+- [HFT selection](HFT_SELECTION.md) — the four HFT archetypes as a Tier-1 stock picker from daily high-low-close-volume
 
 **Decision layer & consumption**
 - [Decision layer, global rigor & observability](DECISION_LAYER.md) — portfolio / risk / meta-screen / rotation / alerts / comps + global PIT + FX + data quality + serving
