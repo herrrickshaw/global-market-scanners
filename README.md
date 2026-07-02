@@ -80,6 +80,7 @@ classification → fundamentals on breakout candidates → styled Excel export**
 - [Security & Integrity](SECURITY.md) — signed commits, checksum manifest, branch protection
 - [Performance](PERFORMANCE.md) — measured bottlenecks & fixes
 - [SAFe delivery](safe/SAFE.md) — the platform as a queryable Scaled-Agile backlog (`safe/safe_backlog.py`)
+- [TOGAF architecture](architecture/TOGAF.md) — principles catalog + ADM mapping + executable governance (`architecture/togaf.py`)
 - [Architecture](ARCHITECTURE.md) — mapped to the Modern Data Architecture Blueprint
 - [Architecture Map](ARCHITECTURE_MAP.md) — data-flow + tier + ER diagrams (Mermaid)
 - [Data Schema](SCHEMA.md) — data dictionary for every store
