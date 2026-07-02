@@ -41,3 +41,11 @@ alert_*.json
 LITERATURE_SCOUT.md
 LITERATURE_SCOUT.json
 benchmark_cache/
+
+# generated analytics outputs (derived data, rebuilt on demand — not source)
+ml_viability_*.csv*
+net_viability_*.csv*
+accum_screen*.csv
+quality_*.csv
+liquidity*.csv
+pead*.csv
