@@ -330,6 +330,14 @@
       "status": "done",
       "name": "Code abstraction (shared marketdata library)",
       "hypothesis": "Extracting the copy-pasted data-loading, universe-filtering, ticker-normalising and cross-sectional-stat helpers into one marketdata.py (public module names preserved) removes duplication across ~15 modules and gives a single source of truth + a function glossary."
+    },
+    {
+      "id": "E31",
+      "theme": "ST1",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "Versioned CRUD store (vCRUD)",
+      "hypothesis": "An append-only, versioned CRUD store (create/read/update/delete/restore/history/time-travel) over SQLite gives the platform a user-managed WRITE surface (watchlists) with a full audit trail, consistent with its immutable-forward governance; exposed via CLI + REST in serve.py."
     }
   ],
   "features": [
@@ -998,6 +1006,24 @@
       "size": 5,
       "name": "marketdata.py shared blocks (market_list/wide/close_volume/liquid_symbols/clean_key/zscore/market_proxy/IC/monotonicity/trend_corr) + refactor 15 modules to delegate + GLOSSARY.md",
       "module": "marketdata.py"
+    },
+    {
+      "id": "F31.1",
+      "epic": "E31",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "vcrud.py: append-only versioned CRUD (create/read/update/soft-delete/restore/history/read_version/list) + CLI",
+      "module": "vcrud.py"
+    },
+    {
+      "id": "F31.2",
+      "epic": "E31",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 3,
+      "name": "Watchlist CRUD REST endpoints (POST/GET/PUT/DELETE + history) over vcrud",
+      "module": "serve.py"
     }
   ],
   "kpis": [
@@ -1039,7 +1065,7 @@
     },
     {
       "metric": "Test suite",
-      "value": "97 unit tests, CI-gated (pytest + govern + integrity)"
+      "value": "101 unit tests, CI-gated (pytest + govern + integrity)"
     },
     {
       "metric": "External validation",
@@ -1072,6 +1098,10 @@
     {
       "metric": "Code reuse",
       "value": "shared marketdata.py: 1 loader/universe/stats library replaces copies across ~15 modules; GLOSSARY.md documents every block"
+    },
+    {
+      "metric": "Write surface",
+      "value": "versioned CRUD (vcrud.py): watchlists via CLI + REST, append-only with full version history + soft-delete/restore/time-travel"
     }
   ]
 }

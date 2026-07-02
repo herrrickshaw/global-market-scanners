@@ -49,3 +49,7 @@ accum_screen*.csv
 quality_*.csv
 liquidity*.csv
 pead*.csv
+
+# vCRUD store (user data, not source)
+vcrud.db
+vcrud.db-journal

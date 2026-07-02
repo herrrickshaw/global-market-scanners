@@ -132,6 +132,78 @@ def create_app():
         finally:
             con.close()
 
+    # ── watchlist CRUD (versioned) — the write surface, over vcrud ──────────────
+    from fastapi import Body
+
+    def _vc():
+        import vcrud
+        return vcrud, vcrud.connect()
+
+    @app.get("/watchlists")
+    def wl_list():
+        vc, con = _vc()
+        try:
+            return vc.list_ids(con, "watchlist")
+        finally:
+            con.close()
+
+    @app.post("/watchlists/{name}")
+    def wl_create(name: str, body: dict = Body(...)):
+        vc, con = _vc()
+        try:
+            payload = {"tickers": [t.upper() for t in body.get("tickers", [])],
+                       "note": body.get("note", "")}
+            return vc.create(con, "watchlist", name, payload)
+        except ValueError as e:
+            raise HTTPException(409, str(e))
+        finally:
+            con.close()
+
+    @app.get("/watchlists/{name}")
+    def wl_read(name: str):
+        vc, con = _vc()
+        try:
+            p = vc.read(con, "watchlist", name)
+            if p is None:
+                raise HTTPException(404, f"watchlist/{name} not found")
+            return p
+        finally:
+            con.close()
+
+    @app.put("/watchlists/{name}")
+    def wl_update(name: str, body: dict = Body(...)):
+        vc, con = _vc()
+        try:
+            if body.get("add"):
+                vc.add_to_list(con, "watchlist", name, "tickers",
+                               [t.upper() for t in body["add"]])
+            if body.get("remove"):
+                vc.remove_from_list(con, "watchlist", name, "tickers",
+                                    [t.upper() for t in body["remove"]])
+            if "note" in body:
+                vc.update(con, "watchlist", name, {"note": body["note"]})
+            return vc.read(con, "watchlist", name)
+        except KeyError as e:
+            raise HTTPException(404, str(e))
+        finally:
+            con.close()
+
+    @app.delete("/watchlists/{name}")
+    def wl_delete(name: str):
+        vc, con = _vc()
+        try:
+            return {"deleted": vc.delete(con, "watchlist", name)}
+        finally:
+            con.close()
+
+    @app.get("/watchlists/{name}/history")
+    def wl_history(name: str):
+        vc, con = _vc()
+        try:
+            return vc.history(con, "watchlist", name)
+        finally:
+            con.close()
+
     return app
 
 

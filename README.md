@@ -43,7 +43,8 @@ across 19 markets, and a Cassandra/Kafka/Flink data backbone.
 | **Serving & observability** | `serve.py`, `dashboard.py`, `incremental.py`, `feature_cache.py`, `data_quality.py` | FastAPI + HTML dashboard over the warehouse, partition-incremental refresh, ML feature cache, data-quality monitor |
 | **Dataset** | `build_industry_parquet.py`, `enrich_industries.py`, `unlisted_enrichment.py` | Industry/peer parquet + unlisted-firm enrichment |
 | **Data backbone** | `market_store.py` (Cassandra), `stream_pipeline.py` (Kafka), `flink_screens.py`, `cdc/` | Persistent OHLC cache, streaming, CDC |
-| **Utilities** | `market_holidays.py`, `market_data_cache.py`, `stock_utils.py` | Trading calendars, caching, helpers |
+| **Utilities** | `market_holidays.py`, `market_data_cache.py`, `stock_utils.py`, `marketdata.py` | Trading calendars, caching, shared reusable blocks |
+| **Write surface (CRUD)** | `vcrud.py` (+ `serve.py` REST) | Versioned CRUD for watchlists — append-only, full history, soft-delete/restore/time-travel |
 
 ---
 
@@ -93,6 +94,7 @@ classification → fundamentals on breakout candidates → styled Excel export**
 **Guides**
 - [User Guide](USER_GUIDE.md) — end-to-end workflows for every capability
 - [Glossary of reusable blocks](GLOSSARY.md) — the shared `marketdata.py` library + each module's pure functions
+- [vCRUD](VCRUD.md) — versioned CRUD store (watchlists) via CLI + REST; append-only with full audit trail
 - [Security & Integrity](SECURITY.md) — signed commits, checksum manifest, branch protection
 - [Performance](PERFORMANCE.md) — measured bottlenecks & fixes
 - [SAFe delivery](safe/SAFE.md) — the platform as a queryable Scaled-Agile backlog (`safe/safe_backlog.py`)

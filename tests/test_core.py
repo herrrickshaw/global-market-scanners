@@ -964,5 +964,50 @@ def test_marketdata_delegation_preserves_module_helpers():
     assert wl.clean_key("XYZ.BO") == md.clean_key("XYZ.BO") == "XYZ"
 
 
+# ── vcrud.py (versioned CRUD store) ───────────────────────────────────────────
+def test_vcrud_create_read_and_duplicate():
+    import vcrud
+    con = vcrud.connect(":memory:")
+    vcrud.create(con, "watchlist", "wl1", {"tickers": ["NVDA", "MSFT"]})
+    assert vcrud.read(con, "watchlist", "wl1") == {"tickers": ["NVDA", "MSFT"]}
+    with pytest.raises(ValueError):
+        vcrud.create(con, "watchlist", "wl1", {"tickers": []})    # live duplicate rejected
+
+
+def test_vcrud_update_versions_and_history():
+    import vcrud
+    con = vcrud.connect(":memory:")
+    vcrud.create(con, "wl", "a", {"tickers": ["A"], "note": "x"})
+    vcrud.update(con, "wl", "a", {"note": "y"})                   # merge: keeps tickers, changes note
+    assert vcrud.read(con, "wl", "a") == {"tickers": ["A"], "note": "y"}
+    h = vcrud.history(con, "wl", "a")
+    assert [r["version"] for r in h] == [1, 2] and h[0]["op"] == "create"
+    assert vcrud.read_version(con, "wl", "a", 1)["note"] == "x"   # time-travel to v1
+
+
+def test_vcrud_soft_delete_restore_and_list():
+    import vcrud
+    con = vcrud.connect(":memory:")
+    vcrud.create(con, "wl", "a", {"tickers": ["A"]})
+    vcrud.create(con, "wl", "b", {"tickers": ["B"]})
+    assert vcrud.delete(con, "wl", "a") is True
+    assert vcrud.read(con, "wl", "a") is None                    # gone from current state
+    assert [r["id"] for r in vcrud.list_ids(con, "wl")] == ["b"]  # not listed
+    assert vcrud.delete(con, "wl", "a") is False                 # already deleted
+    assert vcrud.history(con, "wl", "a")[-1]["op"] == "delete"   # but history is preserved
+    vcrud.restore(con, "wl", "a")
+    assert vcrud.read(con, "wl", "a") == {"tickers": ["A"]}      # restored
+
+
+def test_vcrud_list_field_helpers():
+    import vcrud
+    con = vcrud.connect(":memory:")
+    vcrud.create(con, "wl", "a", {"tickers": ["A", "B"]})
+    vcrud.add_to_list(con, "wl", "a", "tickers", ["B", "C"])     # B already present -> union
+    assert vcrud.read(con, "wl", "a")["tickers"] == ["A", "B", "C"]
+    vcrud.remove_from_list(con, "wl", "a", "tickers", ["A"])
+    assert vcrud.read(con, "wl", "a")["tickers"] == ["B", "C"]
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
