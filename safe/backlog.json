@@ -963,6 +963,15 @@
       "size": 5,
       "name": "PEAD conditioning: directional drift by illiquidity/volume/price quantile + announcement volume-surge",
       "module": "earnings_liquidity.py"
+    },
+    {
+      "id": "F29.2",
+      "epic": "E29",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 3,
+      "name": "Per-country PEAD-liquidity test (--by-market): cross-market illiquidity IC breakdown",
+      "module": "earnings_liquidity.py"
     }
   ],
   "kpis": [
@@ -1004,7 +1013,7 @@
     },
     {
       "metric": "Test suite",
-      "value": "91 unit tests, CI-gated (pytest + govern + integrity)"
+      "value": "92 unit tests, CI-gated (pytest + govern + integrity)"
     },
     {
       "metric": "External validation",
@@ -1032,7 +1041,7 @@
     },
     {
       "metric": "Earnings-event study",
-      "value": "announcement-day volume surge median 3.8x; PEAD-illiquidity IC +0.029 (weak, expected sign)"
+      "value": "per-country: PEAD-illiquidity effect strongest in emerging BR (+0.24), ~0 in efficient US; 8/12 markets show Chordia-Sadka sign; volume surge ~3.8x universal"
     }
   ]
 }

@@ -906,5 +906,20 @@ def test_bucket_stats_and_spread():
     assert spread_qhigh_qlow(t, "dir_drift_med%") > 0                # Q5 > Q1
 
 
+def test_per_market_summary_ranks_by_illiq_ic():
+    from earnings_liquidity import per_market_summary
+    rng = np.random.default_rng(4)
+    n = 80
+    # market A: drift rises with illiquidity (positive IC); market B: no relation
+    illiq = np.linspace(0, 1, n)
+    A = pd.DataFrame({"illiq": illiq, "dollar_vol": rng.random(n), "price": rng.random(n),
+                      "vol_surge": rng.uniform(2, 5, n), "dir_drift": 0.1 * illiq + rng.normal(0, 0.01, n)})
+    B = pd.DataFrame({"illiq": illiq, "dollar_vol": rng.random(n), "price": rng.random(n),
+                      "vol_surge": rng.uniform(2, 5, n), "dir_drift": rng.normal(0, 0.05, n)})
+    summ = per_market_summary({"A": A, "B": B}, min_events=40)
+    assert list(summ["market"]) == ["A", "B"]                        # A (positive IC) ranks first
+    assert summ.iloc[0]["illiq_IC"] > summ.iloc[1]["illiq_IC"]
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

@@ -74,6 +74,24 @@ def spread_qhigh_qlow(table: pd.DataFrame, col: str) -> float:
     return round(float(table[col].iloc[-1] - table[col].iloc[0]), 2) if not table.empty else np.nan
 
 
+def per_market_summary(panel_by_market: dict, min_events: int = 40) -> pd.DataFrame:
+    """One row per country: event count, announcement volume surge, and the
+    information coefficient of directional PEAD drift vs illiquidity / volume / price.
+    Reveals WHERE the liquidity-conditioning of PEAD holds across the testing universe."""
+    from accumulation_screener import information_coefficient
+    rows = []
+    for m, p in panel_by_market.items():
+        p = p[p["dir_drift"].abs() < 2.0] if not p.empty else p
+        if len(p) < min_events:
+            continue
+        rows.append({"market": m, "events": len(p),
+                     "vol_surge×": round(float(p["vol_surge"].median()), 1),
+                     "illiq_IC": round(information_coefficient(p["illiq"], p["dir_drift"]), 3),
+                     "vol_IC": round(information_coefficient(p["dollar_vol"], p["dir_drift"]), 3),
+                     "price_IC": round(information_coefficient(p["price"], p["dir_drift"]), 3)})
+    return pd.DataFrame(rows).sort_values("illiq_IC", ascending=False) if rows else pd.DataFrame()
+
+
 # ── data assembly (offline, point-in-time) ────────────────────────────────────
 def _wide(market: str):
     p = os.path.join(SEED, f"cleaned_long_{market}.parquet")
@@ -125,11 +143,32 @@ def main():
     ap.add_argument("--market", default=None)
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--horizon", type=int, default=HORIZON)
+    ap.add_argument("--by-market", action="store_true",
+                    help="test each country separately (per-market PEAD-liquidity IC table)")
     args = ap.parse_args()
 
     markets = ([f.split("cleaned_long_")[1].split(".")[0]
                 for f in sorted(os.listdir(SEED)) if f.startswith("cleaned_long_")]
                if (args.all or not args.market) else [args.market])
+
+    # ── per-country breakdown (expand the testing universe) ─────────────────────
+    if args.by_market:
+        by = {m: scan_market(m, args.horizon) for m in markets}
+        summ = per_market_summary(by)
+        print(f"\n=== EARNINGS × LIQUIDITY — PER-COUNTRY test ({len(summ)} markets) ===")
+        print("    illiq_IC = corr(pre-event illiquidity, directional PEAD drift);")
+        print("    POSITIVE = PEAD stronger in illiquid names (Chordia-Sadka holds there).")
+        if summ.empty:
+            print("  insufficient events per market"); return
+        print(f"  {'mkt':4}{'events':>7}{'volSurge×':>10}{'illiq_IC':>9}{'vol_IC':>8}{'price_IC':>9}")
+        for _, r in summ.iterrows():
+            print(f"  {str(r['market']):4}{int(r['events']):>7}{r['vol_surge×']:>10.1f}"
+                  f"{r['illiq_IC']:>9.3f}{r['vol_IC']:>8.3f}{r['price_IC']:>9.3f}")
+        pos = summ[summ["illiq_IC"] > 0]
+        print(f"\n  {len(pos)}/{len(summ)} markets show the Chordia-Sadka sign (illiq_IC>0); "
+              f"strongest: {', '.join(summ['market'].head(3))}")
+        return
+
     panel = pd.concat([scan_market(m, args.horizon) for m in markets], ignore_index=True)
     panel = panel[panel["dir_drift"].abs() < 2.0] if not panel.empty else panel
     if panel.empty:

@@ -28,7 +28,7 @@ Now:
   metrics, meta-screen fusion, FX, incremental refresh, feature-cache keys, serve
   query/injection guard, data-quality rules) plus the AFP/QMJ quality factor
   (standardised ranks, dimension scoring, QMJ/LQ combination, price-premium test).
-  `pytest -q` → **91 passed** (incl. the literature scout, the PEAD event-study core,
+  `pytest -q` → **92 passed** (incl. the literature scout, the PEAD event-study core,
   the Amihud liquidity core, the public data-source registry, the Ken French factor
   parser + Carhart alpha regression, the HFT-archetype proxies, and the Darvas ×
   volume-acquisition monitor — OBV/CMF/up-down volume, box formation with the current
