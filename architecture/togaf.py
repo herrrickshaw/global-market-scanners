@@ -33,7 +33,10 @@ def _sh(cmd):
 
 # ── Architecture Governance (ADM Phase G): each check returns (ok, detail) ────
 def chk_no_secrets():
-    r = _sh(r"git grep -nIE '(sk-ant-[a-zA-Z0-9]{20}|AKIA[0-9A-Z]{16}|ghp_[a-zA-Z0-9]{20}|BEGIN OPENSSH PRIVATE)' -- . ':!*.md' || true")
+    # require real key/token shapes (e.g. the '-----BEGIN …KEY' prefix) so this
+    # detection pattern doesn't match its own source.
+    pat = r"(sk-ant-[a-zA-Z0-9]{24}|AKIA[0-9A-Z]{16}|ghp_[a-zA-Z0-9]{36}|-----BEGIN [A-Z ]+PRIVATE KEY)"
+    r = _sh(f"git grep -nIE '{pat}' -- . ':!*.md' || true")
     n = len([l for l in r.stdout.splitlines() if l.strip()])
     return n == 0, f"{n} hardcoded-secret hits (want 0)"
 
@@ -120,5 +123,7 @@ def govern():
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "principles"
-    {"principles": principles, "adm": adm, "domains": domains, "govern": govern}.get(
+    if cmd == "govern":
+        sys.exit(0 if govern() else 1)     # non-zero fails CI when a principle regresses
+    {"principles": principles, "adm": adm, "domains": domains}.get(
         cmd, lambda: print("commands: principles | adm | domains | govern"))()
