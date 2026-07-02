@@ -109,22 +109,65 @@ SCREENS = {
 
 
 def process_market(mkt: str, screen: str):
-    df = pd.read_parquet(os.path.join(SEED, f"cleaned_long_{mkt}.parquet"))
-    df = df.sort_values("Date")
-    # equal-weight market return (beta reference)
-    piv = df.pivot_table(index="Date", columns="Symbol", values="Close", aggfunc="last")
-    mkt_ret = piv.pct_change().mean(axis=1)
-    hits, rows = [], []
-    for sym, g in df.groupby("Symbol"):
-        g = g.set_index("Date")
-        t = _tech(g["Close"].astype(float), g["High"].astype(float),
-                  g["Low"].astype(float), g["Volume"].astype(float), mkt_ret)
-        if not t:
-            continue
-        t.update({"market": mkt, "ticker": sym})
-        rows.append(t)
-        if SCREENS[screen](t):
-            hits.append(t)
+    """Vectorised (columnar) technical metrics for a whole market at once — pandas
+    rolling/ewm operate per-column, so RSI/MACD/DMA/MFI/ADX/beta compute across all
+    tickers in a handful of ops instead of a per-ticker Python loop (see PERFORMANCE.md)."""
+    df = pd.read_parquet(os.path.join(SEED, f"cleaned_long_{mkt}.parquet")).sort_values("Date")
+    piv = lambda col: df.pivot_table(index="Date", columns="Symbol", values=col, aggfunc="last").sort_index()
+    c, h, low, v = piv("Close"), piv("High"), piv("Low"), piv("Volume")
+
+    d = c.diff()
+    rsi = 100 - 100 / (1 + d.clip(lower=0).rolling(14).mean() /
+                       (-d.clip(upper=0)).rolling(14).mean().replace(0, np.nan))
+    macd = c.ewm(span=12).mean() - c.ewm(span=26).mean()
+    macd_hist = macd - macd.ewm(span=9).mean()
+    dma50, dma200 = c.rolling(50).mean(), c.rolling(200).mean()
+    dist52 = (c / c.rolling(252, min_periods=150).max() - 1) * 100
+    tp = (h + low + c) / 3; rmf = tp * v; tpd = tp.diff()
+    mfi = 100 - 100 / (1 + rmf.where(tpd > 0, 0.0).rolling(14).sum() /
+                       rmf.where(tpd < 0, 0.0).rolling(14).sum().replace(0, np.nan))
+    up, dn = h.diff(), -low.diff()
+    tr = (h - low).rolling(14).mean()
+    pdi = 100 * up.where((up > dn) & (up > 0), 0.0).rolling(14).mean() / tr
+    mdi = 100 * dn.where((dn > up) & (dn > 0), 0.0).rolling(14).mean() / tr
+    adx = (100 * (pdi - mdi).abs() / (pdi + mdi).replace(0, np.nan)).rolling(14).mean()
+    volr = v / v.rolling(20).mean()
+
+    # beta vs equal-weight market over the last 200 returns (vectorised covariance)
+    R = c.pct_change(); m = R.mean(axis=1)
+    R2, m2 = R.tail(200), m.tail(200)
+    beta = R2.sub(R2.mean()).mul(m2 - m2.mean(), axis=0).mean() / (m2.var() or np.nan)
+
+    # last-row snapshot (Series indexed by ticker)
+    idx = c.columns
+    px, RSI, MFI, ADX = c.iloc[-1], rsi.iloc[-1], mfi.iloc[-1], adx.iloc[-1]
+    D50, D200, DIST, MH, VOLR = dma50.iloc[-1], dma200.iloc[-1], dist52.iloc[-1], macd_hist.iloc[-1], volr.iloc[-1]
+    above200 = px > D200
+    sma_above = D50 > D200
+    gc = ((dma50 > dma200) & (dma50.shift(1) <= dma200.shift(1))).iloc[-1]
+
+    def clip01(s): return np.minimum(100, np.maximum(0, s))
+    subs = pd.DataFrame({
+        1: clip01(np.where(RSI.values <= 70, RSI.values, 70 - (RSI.values - 70) * 2)),
+        2: np.where(MH.values > 0, 100, 25),
+        3: np.where((px.values > D50.values) & (D50.values > D200.values), 100,
+                    np.where(above200.values, 60, 20)),
+        4: clip01(100 + DIST.values * 3),
+        5: clip01(np.nan_to_num(ADX.values, nan=20.0) * 2),
+        6: np.minimum(100, 50 * VOLR.values),
+    }, index=idx)
+    M = subs.mean(axis=1)
+
+    res = pd.DataFrame({
+        "M": M.round(1), "rsi": RSI.round(1), "mfi": MFI.round(1), "adx": ADX.round(1),
+        "dist_52w": DIST.round(1), "above_200dma": above200, "golden_cross": gc,
+        "sma50_above_200": sma_above, "macd_bull": MH > 0, "vol_ratio": VOLR.round(2),
+        "beta": beta.round(2),
+    }).dropna(subset=["M"])
+    res = res[c.count().reindex(res.index) >= MIN_BARS]     # >=200 bars, matches the loop version
+    res["market"] = mkt; res["ticker"] = res.index
+    rows = res.to_dict("records")
+    hits = [r for r in rows if SCREENS[screen](r)]
     return rows, hits
 
 

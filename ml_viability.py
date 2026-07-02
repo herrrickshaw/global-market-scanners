@@ -61,21 +61,11 @@ MARKET_UNIVERSES = {
 
 
 def download_ohlc(tickers, years):
-    """Bulk-download daily OHLC for a market; return {ticker: DataFrame}."""
-    import yfinance as yf
-    period = f"{years}y"
-    out = {}
-    data = yf.download(tickers, period=period, auto_adjust=True,
-                       progress=False, group_by="ticker", threads=True)
-    for t in tickers:
-        try:
-            df = data[t] if isinstance(data.columns, pd.MultiIndex) else data
-            df = df.dropna(how="all")
-            if df is not None and len(df) > MIN_NEEDED:
-                out[t] = df
-        except Exception:
-            continue
-    return out
+    """OHLC via the Cassandra cache (local after first run; yfinance fallback).
+    Returns {ticker: DataFrame}. See PERFORMANCE.md — avoids re-downloading."""
+    from market_store import cached_download
+    return {t: df for t, df in cached_download(tickers, years=years).items()
+            if df is not None and len(df) > MIN_NEEDED}
 
 
 MIN_NEEDED = LOOKBACK + TRAIN_WINDOW + PREDICT_DAYS + 250  # ~ enough for a few yrs of test pts

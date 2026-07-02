@@ -234,7 +234,7 @@ def main():
               f"({os.path.getsize(args.export_summary)} bytes)", file=sys.stderr)
         return
 
-    import yfinance as yf
+    from market_store import cached_download    # cache-first OHLC (PERFORMANCE.md)
     ml_engine = None
     if args.include_ml:
         from ml_signal_engine import MLSignalEngine
@@ -249,19 +249,11 @@ def main():
 
         for i in range(0, len(todo), args.batch):
             batch = todo[i:i + args.batch]
-            try:
-                data = yf.download(batch, period=f"{args.years}y", auto_adjust=True,
-                                   progress=False, group_by="ticker", threads=True)
-            except Exception as e:
-                print(f"  [{market}] download error: {e}", file=sys.stderr); continue
+            data = cached_download(batch, years=args.years)   # Cassandra-cached, no re-download
 
             rows, donerows = [], []
             for t in batch:
-                try:
-                    df = data[t] if isinstance(data.columns, pd.MultiIndex) else data
-                    df = df.dropna(how="all")
-                except Exception:
-                    df = None
+                df = data.get(t)
                 clip = round(30 * (args.horizon / FWD) ** 0.5)   # scale outlier clip with sqrt(horizon)
                 for r in eval_ticker(df, args.horizon, clip, args.include_ml, ml_engine):
                     rows.append((market, t, r["screen"], r["n_signals"],

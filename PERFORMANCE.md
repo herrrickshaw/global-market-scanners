@@ -20,26 +20,34 @@ bursts hit HTTP 401 "Invalid Crumb", full-universe pulls dropped batches, `get_i
 throttled.
 
 **Fixes**
-- **Cache once, read locally.** `market_store.cached_download` (Cassandra) already
-  eliminates re-downloads — ✅ used by `pit_backtest`, `factor_research`;
-  `fundamentals_global` has its own resumable cache. ⬜ route `ml_viability` and
-  `screen_viability` through it too (currently call `yf.download` directly).
+- **Cache once, read locally.** `market_store.cached_download` (Cassandra) eliminates
+  re-downloads — ✅ used by `pit_backtest`, `factor_research`, and now **`ml_viability`
+  and `screen_viability`** (routed through the cache; verified serving "from Cassandra,
+  no network"). `fundamentals_global` has its own resumable cache.
 - **Prefer local parquets for bulk** — `dvm_global`/`dvm_composite` read
   `cleaned_long_*.parquet` (0.2 s/market) instead of yfinance ✅. Biggest single win:
   point every full-universe scan at the parquet/Cassandra layer, not the network.
 - **Tame the API when you must fetch**: ≤3 workers + exponential backoff (✅ in
   `enrich_industries`, `fundamentals_global`); pre-warm the cache in one off-hours pass.
 
-## 2. Per-ticker Python compute loops ✅ (parallelised) + ⬜ (vectorise)
-`dvm_global`/`dvm_composite` loop per ticker in Python. I/O is trivial (0.2 s/market);
-the cost is the interpreted loop.
+## 2. Per-ticker Python compute loops ✅ (vectorised + parallelised)
+`dvm_global` looped per ticker in Python. I/O is trivial (0.2 s/market); the cost was
+the interpreted loop.
 
-**Fixed:** `dvm_global` now runs markets across cores via `ProcessPoolExecutor`
-(`--workers`, default = all cores). **Measured: 105.4 s → 45.2 s (2.3×)** on 8 cores —
-sub-linear because US/CN/JP dominate the wall-time and each worker reloads its parquet.
+**Fixed — two stacked wins on `dvm_global` (30,785 tickers, 19 markets):**
+| version | wall time | speedup |
+|---|---|---|
+| per-ticker loop, 1 worker | 105.4 s | 1× |
+| **columnar-vectorised**, 1 worker | **13.9 s** | **7.6×** |
+| vectorised + `ProcessPoolExecutor` (8 cores) | **8.1 s** | **13×** |
 
-**Further ⬜:** vectorise RSI/MACD/DMA across the pivoted price matrix (or DuckDB window
-functions) instead of per-series for another ~3–5×; apply the same pool to `dvm_composite`.
+RSI/MACD/DMA/MFI/ADX/beta now compute across the pivoted price matrix in a handful of
+pandas ops (per-column rolling/ewm) instead of per-series. Scored-count parity restored
+with a `>=200`-bar filter; the columnar path computes on the market's shared date index,
+so tickers with recent gaps are correctly excluded (~2% fewer screen hits — arguably more correct).
+
+**Further ⬜:** `dvm_composite` (~731 tickers) still loops but is small/fast (~3 s); same
+vectorisation applies if it grows.
 
 ## 3. ML walk-forward retraining 🔶
 `pit_backtest`, `ml_viability`, `screen_viability --include-ml` refit a model **per
@@ -73,10 +81,11 @@ refresh only changed partitions.
 ---
 
 ## Priority order (impact × effort)
-1. **Route `ml_viability` / `screen_viability` through `cached_download`** (kills re-downloads) — small change, big win.
-2. **Parallelise `dvm_global` with `ProcessPoolExecutor`** — 120 s → ~25 s.
-3. **Subsample + multiprocess the ML walk-forward** — the compute-heavy path.
-4. **Incremental updates** (CDC + trading-day deltas) — biggest long-run saving.
+1. ✅ **Route `ml_viability` / `screen_viability` through `cached_download`** — done (no more re-downloads).
+2. ✅ **Vectorise + parallelise `dvm_global`** — done, 105 s → 8.1 s (13×).
+3. ⬜ **Subsample + multiprocess the ML walk-forward** — the remaining compute-heavy path.
+4. ⬜ **Incremental updates** (CDC + trading-day deltas) — biggest long-run saving.
 
-Already banked: local-parquet bulk reads, Cassandra cache, EDGAR pruning, holiday-day
-skipping, DuckDB analytical layer.
+Already banked: local-parquet bulk reads, Cassandra cache (now used by all data
+scripts), vectorised+parallel `dvm_global`, EDGAR pruning, holiday-day skipping,
+DuckDB analytical layer.
