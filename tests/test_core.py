@@ -886,5 +886,25 @@ def test_esg_normalisation():
     assert list(df["ticker"]) == ["LOW", "HIGH"]              # lowest risk first
 
 
+# ── earnings_liquidity.py (liquidity/volume/price × PEAD study) ────────────────
+def test_directional_drift_sign():
+    from earnings_liquidity import directional_drift
+    assert directional_drift(0.05, 0.03) == pytest.approx(0.03)   # positive surprise, up drift
+    assert directional_drift(-0.05, -0.02) == pytest.approx(0.02)  # negative surprise, down drift = positive PEAD
+    assert directional_drift(-0.05, 0.02) == pytest.approx(-0.02)  # reversal against surprise
+    assert np.isnan(directional_drift(0.0, 0.03))                  # no surprise -> undefined
+
+
+def test_bucket_stats_and_spread():
+    from earnings_liquidity import bucket_stats, spread_qhigh_qlow
+    rng = np.random.default_rng(9)
+    n = 400
+    by = np.linspace(0, 1, n)
+    val = 0.05 * by + rng.normal(0, 0.005, n)                      # value rises with the sort key
+    t = bucket_stats(pd.DataFrame({"illiq": by, "dir_drift": val}), "illiq", "dir_drift", q=5)
+    assert list(t["dir_drift_med%"]) == sorted(t["dir_drift_med%"])   # monotone increasing
+    assert spread_qhigh_qlow(t, "dir_drift_med%") > 0                # Q5 > Q1
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

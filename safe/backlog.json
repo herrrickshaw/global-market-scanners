@@ -314,6 +314,14 @@
       "status": "done",
       "name": "esg_screen.py (scout gap)",
       "hypothesis": "Closes a scout frontier gap: esg_screen.py \u2014 Sustainalytics ESG-risk screener."
+    },
+    {
+      "id": "E29",
+      "theme": "ST2",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "Earnings \u00d7 liquidity/volume/price study",
+      "hypothesis": "An event study conditioning PEAD on pre-event liquidity, volume and price tests whether the drift is stronger in illiquid/low-volume names (Chordia-Sadka); reuses pead_factor + liquidity_factor."
     }
   ],
   "features": [
@@ -946,6 +954,15 @@
       "size": 1,
       "name": "Microstructure frontier gap mapped to hft_selection/darvas_volume (Tier-1) in the scout",
       "module": "literature_scout.py"
+    },
+    {
+      "id": "F29.1",
+      "epic": "E29",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "PEAD conditioning: directional drift by illiquidity/volume/price quantile + announcement volume-surge",
+      "module": "earnings_liquidity.py"
     }
   ],
   "kpis": [
@@ -987,7 +1004,7 @@
     },
     {
       "metric": "Test suite",
-      "value": "89 unit tests, CI-gated (pytest + govern + integrity)"
+      "value": "91 unit tests, CI-gated (pytest + govern + integrity)"
     },
     {
       "metric": "External validation",
@@ -1012,6 +1029,10 @@
     {
       "metric": "Scout frontier gaps",
       "value": "0 open \u2014 all 21 tracked themes covered (seasonality/network/crowding/nlp/options/esg/microstructure closed)"
+    },
+    {
+      "metric": "Earnings-event study",
+      "value": "announcement-day volume surge median 3.8x; PEAD-illiquidity IC +0.029 (weak, expected sign)"
     }
   ]
 }
