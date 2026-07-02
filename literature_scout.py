@@ -81,21 +81,35 @@ COVERED_THEMES = {
     "liquidity":      {"kw": ["liquidity factor", "amihud illiquidity", "bid-ask spread",
                               "turnover liquidity", "liquidity premium", "price impact"],
                        "modules": ["liquidity_factor.py"]},
+    # the remaining frontier gaps, closed in one pass (each to its module):
+    "text_nlp":       {"kw": ["textual analysis", "10-k sentiment", "nlp finance", "news sentiment",
+                              "earnings call", "lazy prices", "language model", "llm"],
+                       "modules": ["news_sentiment.py"]},
+    "options_implied": {"kw": ["implied volatility", "variance risk premium", "option-implied",
+                               "volatility skew", "put-call ratio"],
+                        "modules": ["options_iv.py"]},
+    "short_crowding":  {"kw": ["short interest", "factor crowding", "arbitrage capacity",
+                               "days to cover", "co-movement crowding"],
+                        "modules": ["crowding.py"]},
+    "seasonality":     {"kw": ["seasonality", "january effect", "turn of the month", "sell in may",
+                               "day of week effect", "halloween effect"],
+                        "modules": ["seasonality.py"]},
+    "network":         {"kw": ["supply chain momentum", "customer-supplier", "economic links",
+                               "network effects", "lead-lag"],
+                        "modules": ["peer_network.py"]},
+    "esg_climate":     {"kw": ["esg factor", "sustainable investing", "climate risk premium",
+                               "carbon risk", "esg risk score"],
+                        "modules": ["esg_screen.py"]},
+    "microstructure":  {"kw": ["market microstructure", "order flow", "high frequency trading",
+                               "limit order book", "efficiency ratio", "corwin-schultz"],
+                        "modules": ["hft_selection.py", "darvas_volume.py"]},
 }
 
 # ── FRONTIER themes the platform does NOT cover yet (a hit here = opportunity) ──
-FRONTIER_THEMES = {
-    "text_nlp":        ["textual analysis", "10-k sentiment", "nlp finance", "news sentiment",
-                        "earnings call", "lazy prices", "language model", "llm"],
-    "options_implied": ["implied volatility", "variance risk premium", "option-implied",
-                        "volatility skew", "put-call ratio"],
-    "short_crowding":  ["short interest", "factor crowding", "arbitrage capacity", "days to cover"],
-    "seasonality":     ["seasonality", "january effect", "turn of the month", "sell in may"],
-    "network":         ["supply chain momentum", "customer-supplier", "economic links", "network effects"],
-    "esg_climate":     ["esg factor", "sustainable investing", "climate risk premium", "carbon risk"],
-    "microstructure":  ["market microstructure", "order flow", "high frequency trading",
-                        "limit order book"],
-}
+# All prior frontier gaps have been implemented (see COVERED_THEMES). New frontiers can
+# be added here as the field moves; an empty set means the scout currently covers every
+# theme it tracks (a hit outside these is classified 'unmapped').
+FRONTIER_THEMES: dict = {}
 
 # ── the scouted sample papers (offline seed corpus) ───────────────────────────
 SEED_PAPERS = [

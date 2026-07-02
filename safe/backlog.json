@@ -266,6 +266,54 @@
       "status": "done",
       "name": "Corporate-action screeners",
       "hypothesis": "A stock-split screener (yfinance-authoritative, since splits are adjusted out of price) and a rights-issue/dilution-event screener (idiosyncratic persistent ex-rights-band gap-downs, honestly labelled as candidates) surface corporate actions across the liquid universe."
+    },
+    {
+      "id": "E23",
+      "theme": "ST2",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "seasonality.py (scout gap)",
+      "hypothesis": "Closes a scout frontier gap: seasonality.py \u2014 calendar effects (day-of-week/turn-of-month/monthly)."
+    },
+    {
+      "id": "E24",
+      "theme": "ST2",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "peer_network.py (scout gap)",
+      "hypothesis": "Closes a scout frontier gap: peer_network.py \u2014 economic-links peer lead-lag."
+    },
+    {
+      "id": "E25",
+      "theme": "ST2",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "crowding.py (scout gap)",
+      "hypothesis": "Closes a scout frontier gap: crowding.py \u2014 co-movement crowding proxy."
+    },
+    {
+      "id": "E26",
+      "theme": "ST2",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "news_sentiment.py (scout gap)",
+      "hypothesis": "Closes a scout frontier gap: news_sentiment.py \u2014 Loughran-McDonald headline sentiment."
+    },
+    {
+      "id": "E27",
+      "theme": "ST2",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "options_iv.py (scout gap)",
+      "hypothesis": "Closes a scout frontier gap: options_iv.py \u2014 option-implied IV/put-call/skew."
+    },
+    {
+      "id": "E28",
+      "theme": "ST2",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "esg_screen.py (scout gap)",
+      "hypothesis": "Closes a scout frontier gap: esg_screen.py \u2014 Sustainalytics ESG-risk screener."
     }
   ],
   "features": [
@@ -835,6 +883,69 @@
       "size": 5,
       "name": "Corporate actions from public announcements: SEC EDGAR 8-K full-text search (splits + rights issues)",
       "module": "corporate_actions.py"
+    },
+    {
+      "id": "F23.1",
+      "epic": "E23",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "seasonality.py \u2014 calendar effects (day-of-week/turn-of-month/monthly)",
+      "module": "seasonality.py"
+    },
+    {
+      "id": "F24.1",
+      "epic": "E24",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "peer_network.py \u2014 economic-links peer lead-lag",
+      "module": "peer_network.py"
+    },
+    {
+      "id": "F25.1",
+      "epic": "E25",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "crowding.py \u2014 co-movement crowding proxy",
+      "module": "crowding.py"
+    },
+    {
+      "id": "F26.1",
+      "epic": "E26",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "news_sentiment.py \u2014 Loughran-McDonald headline sentiment",
+      "module": "news_sentiment.py"
+    },
+    {
+      "id": "F27.1",
+      "epic": "E27",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "options_iv.py \u2014 option-implied IV/put-call/skew",
+      "module": "options_iv.py"
+    },
+    {
+      "id": "F28.1",
+      "epic": "E28",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "esg_screen.py \u2014 Sustainalytics ESG-risk screener",
+      "module": "esg_screen.py"
+    },
+    {
+      "id": "F18.2",
+      "epic": "E18",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 1,
+      "name": "Microstructure frontier gap mapped to hft_selection/darvas_volume (Tier-1) in the scout",
+      "module": "literature_scout.py"
     }
   ],
   "kpis": [
@@ -876,7 +987,7 @@
     },
     {
       "metric": "Test suite",
-      "value": "83 unit tests, CI-gated (pytest + govern + integrity)"
+      "value": "89 unit tests, CI-gated (pytest + govern + integrity)"
     },
     {
       "metric": "External validation",
@@ -897,6 +1008,10 @@
     {
       "metric": "Accumulation/CMF validation",
       "value": "6-month Q5-Q1 +10.8% (accum), monotonicity 1.00, IC 0.07; weak at 1-month"
+    },
+    {
+      "metric": "Scout frontier gaps",
+      "value": "0 open \u2014 all 21 tracked themes covered (seasonality/network/crowding/nlp/options/esg/microstructure closed)"
     }
   ]
 }

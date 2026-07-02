@@ -383,11 +383,13 @@ def test_score_paper_covered_vs_gap_classification():
                         "year": 2021, "citations": 100})
     assert pead["coverage"] in ("covered", "extends")
     assert "pead_factor.py" in pead["modules"]
-    # a still-open frontier theme is classified as a gap
-    gap = score_paper({"title": "ESG factor and climate risk premium in equities",
+    # ESG was a frontier gap; now implemented (esg_screen.py) -> covered
+    esg = score_paper({"title": "ESG factor and climate risk premium in equities",
                        "year": 2022, "citations": 80})
-    assert gap["coverage"] == "gap"
-    assert "esg_climate" in gap["frontier_themes"]
+    assert esg["coverage"] in ("covered", "extends") and "esg_screen.py" in esg["modules"]
+    # a genuinely off-topic paper maps to nothing
+    off = score_paper({"title": "A study of igneous rock crystallisation", "year": 2000})
+    assert off["coverage"] == "unmapped"
     unmapped = score_paper({"title": "A study of igneous rock formation", "year": 2000})
     assert unmapped["coverage"] == "unmapped"
 
@@ -825,6 +827,63 @@ def test_parse_edgar_hits_extracts_ticker_and_form():
     assert rows[0]["ticker"] == "RGR" and rows[0]["company"] == "STURM RUGER & CO INC"
     assert rows[0]["date"] == "2026-03-04" and rows[0]["form"] == "8-K"
     assert rows[0]["event"] == "rights issue" and rows[1]["ticker"] == "DOLE"
+
+
+# ── scout frontier gaps: seasonality / network / crowding / nlp / options / esg ──
+def test_seasonality_day_of_week_and_turn_of_month():
+    import seasonality as se
+    idx = pd.bdate_range("2024-01-01", periods=260)
+    r = pd.Series(0.001, index=idx)
+    r[r.index.dayofweek == 0] = 0.01                          # Mondays strong
+    dow = se.day_of_week(r)
+    assert dow.loc[dow["weekday"] == "Mon", "mean%"].iloc[0] > dow.loc[dow["weekday"] == "Fri", "mean%"].iloc[0]
+    tom = se.turn_of_month(r)
+    assert "edge%" in tom and tom["tom_n"] > 0
+
+
+def test_peer_network_basket_return_and_signal():
+    from peer_network import basket_return, peer_signal
+    mp = pd.DataFrame({"A": [10.0, 11.0, 12.0], "B": [20.0, 22.0, 24.0]})   # both +20% over [0,2]
+    assert basket_return(mp, 0, 2) == pytest.approx(0.2)
+    assert peer_signal(0.2) == pytest.approx(0.2) and np.isnan(peer_signal(np.nan))
+
+
+def test_crowding_score_rewards_correlation_and_run():
+    from crowding import crowding_score, corr_to_market
+    df = pd.DataFrame({"corr_mkt": [0.9, 0.1, 0.5], "rel_strength": [0.5, -0.1, 0.2]},
+                      index=["crowded", "lonely", "mid"])
+    s = crowding_score(df)
+    assert s["crowded"] == s.max() and s["lonely"] == s.min()
+    a = pd.Series([0.01, -0.02, 0.03, 0.01, -0.01] * 5)
+    assert corr_to_market(a, a) == pytest.approx(1.0)         # perfectly co-moving
+
+
+def test_news_sentiment_lexicon_scoring():
+    from news_sentiment import score_text, score_headlines
+    assert score_text("Company beats profit, shares surge to record")["sentiment"] > 0
+    assert score_text("Fraud probe, bankruptcy warning, shares plunge")["sentiment"] < 0
+    assert score_text("the company issued a statement")["sentiment"] == 0.0
+    agg = score_headlines(["strong growth and record profit", "lawsuit and loss"])
+    assert agg["n_headlines"] == 2 and -1 <= agg["sentiment"] <= 1
+
+
+def test_options_iv_aggregators():
+    from options_iv import atm_iv, put_call_ratio, iv_skew
+    calls = pd.DataFrame({"strike": [90, 100, 110], "impliedVolatility": [0.30, 0.25, 0.22],
+                          "openInterest": [100, 200, 150]})
+    puts = pd.DataFrame({"strike": [90, 100, 110], "impliedVolatility": [0.35, 0.26, 0.24],
+                         "openInterest": [300, 200, 100]})
+    assert atm_iv(calls, puts, 100) == pytest.approx((0.25 + 0.26) / 2)
+    assert put_call_ratio(calls, puts) == pytest.approx(600 / 450)   # defensive
+    assert iv_skew(calls, puts, 100, moneyness=0.10) == pytest.approx(0.35 - 0.22)  # put fear
+
+
+def test_esg_normalisation():
+    from esg_screen import esg_grade, esg_score_0_100, rank_esg
+    assert esg_grade(8) == "negligible" and esg_grade(35) == "high" and esg_grade(45) == "severe"
+    assert esg_score_0_100(10) == pytest.approx(80.0)         # 100 − 2×10
+    df = rank_esg(pd.DataFrame({"ticker": ["LOW", "HIGH"], "total_esg": [12.0, 38.0]}))
+    assert list(df["ticker"]) == ["LOW", "HIGH"]              # lowest risk first
 
 
 if __name__ == "__main__":

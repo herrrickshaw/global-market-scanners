@@ -34,6 +34,7 @@ across 19 markets, and a Cassandra/Kafka/Flink data backbone.
 | **Watchlists** | `watchlists.py` | Two separate ranked lists — fundamentally strong (QMJ) and being accumulated (Darvas volume) — + intersection |
 | **Accumulation screener** | `accumulation_screener.py` | CMF + accumulation screen, validated vs 1m/6m forward returns (6m Q5−Q1 +10.8%, monotone) |
 | **Corporate actions** | `corporate_actions.py` | Stock-split screener (yfinance-authoritative) + rights-issue/dilution candidate screener |
+| **Frontier factors** | `seasonality.py`, `peer_network.py`, `crowding.py`, `news_sentiment.py`, `options_iv.py`, `esg_screen.py` | The scout's 7 frontier gaps closed: calendar effects, peer lead-lag, crowding, news sentiment, option-implied, ESG |
 | **ML screen discovery** | `ml_screen_discovery.py` | Supervised → Unsupervised (new screens) → RL-from-screeners |
 | **DVM / Trendlyne** | `dvm_engine.py`, `dvm_global.py`, `fundamentals_global.py`, `dvm_composite.py` | Durability/Valuation/Momentum scoring + GGG classification across 19 markets |
 | **Decision layer** | `portfolio.py`, `risk.py`, `meta_screen.py`, `sector_rotation.py`, `alerts.py`, `unlisted_valuation.py` | Signals → constrained portfolios, risk/VaR, ensemble conviction, sector rotation, alerts, private-firm comps |
@@ -121,6 +122,7 @@ classification → fundamentals on breakout candidates → styled Excel export**
 - [Watchlists](WATCHLISTS.md) — separate fundamentally-strong & being-accumulated lists (+ intersection)
 - [Accumulation screener](ACCUMULATION_SCREENER.md) — CMF/accumulation screen validated against 1-month & 6-month forward returns
 - [Corporate actions](CORPORATE_ACTIONS.md) — stock-split (yfinance) & rights-issue/dilution candidate screeners
+- [Frontier gaps](FRONTIER_GAPS.md) — the scout's 7 frontier themes all closed (seasonality/network/crowding/NLP/options/ESG/microstructure)
 
 **Decision layer & consumption**
 - [Decision layer, global rigor & observability](DECISION_LAYER.md) — portfolio / risk / meta-screen / rotation / alerts / comps + global PIT + FX + data quality + serving
