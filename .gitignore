@@ -28,3 +28,4 @@ fund_screen.db
 fundamentals_cache.db
 dvm_composite.db
 market.duckdb
+.pytest_cache/

@@ -1,0 +1,40 @@
+name: CI
+
+# SDLC Integration & Testing + Architecture Governance, on every push/PR.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-govern:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false                 # tests don't need the LFS parquet data
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: pip install -q pytest pandas numpy scipy scikit-learn requests
+
+      - name: Unit tests (SDLC Testing phase)
+        run: python -m pytest tests/ -q
+
+      - name: Architecture governance (TOGAF ADM Phase G)
+        run: python architecture/togaf.py govern
+
+      - name: Integrity manifest (SHA-256 of tracked files)
+        run: |
+          git ls-files | sort | grep -vxF CHECKSUMS.sha256 \
+            | while read -r f; do sha256sum "$f"; done > /tmp/live.sha256
+          # normalise tool output format (sha256sum vs shasum are identical hashes)
+          if diff <(awk '{print $1}' CHECKSUMS.sha256 | sort) <(awk '{print $1}' /tmp/live.sha256 | sort) >/dev/null; then
+            echo "integrity OK — file hashes match the committed manifest"
+          else
+            echo "integrity MISMATCH"; exit 1
+          fi
