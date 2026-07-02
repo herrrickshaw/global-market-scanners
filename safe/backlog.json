@@ -1,0 +1,76 @@
+{
+  "art": "Global Market Quant Platform ART",
+  "strategic_themes": [
+    {"id": "ST1", "name": "Global multi-market screening at scale", "desc": "Screen every reachable market on one consistent framework."},
+    {"id": "ST2", "name": "Rigorous, lookahead-free research", "desc": "Point-in-time backtesting and falsifiable factor research."},
+    {"id": "ST3", "name": "Production-grade, cost-efficient data backbone", "desc": "Cache-first, streaming-capable, fast, rate-limit-safe."},
+    {"id": "ST4", "name": "Secure, reproducible, documented platform", "desc": "Signed & verifiable, fully documented, easy to run."}
+  ],
+  "value_streams": [
+    {"id": "VS1", "name": "Signal-to-decision", "desc": "Raw market data -> screens/scores -> ranked, validated candidates."}
+  ],
+  "pis": [
+    {"id": "PI-1", "name": "Scanner foundation & dataset", "objectives": ["5-market Darvas/Piotroski/CoffeeCan scanners", "Industry/peer + unlisted-firm dataset"]},
+    {"id": "PI-2", "name": "Research & ML", "objectives": ["Point-in-time backtest engine", "Factor research (4 papers)", "Hybrid ML screen discovery"]},
+    {"id": "PI-3", "name": "Global scoring & data backbone", "objectives": ["Trendlyne DVM across 19 markets", "Cassandra/Kafka/Flink + DuckDB warehouse"]},
+    {"id": "PI-4", "name": "Hardening", "objectives": ["Performance (13x) + rate-limit governance", "Security, integrity, full docs"]},
+    {"id": "PI-5", "name": "Serving & incremental analytics (planned)", "objectives": ["API/dashboard serving layer", "Partition-incremental results + ML feature cache"]}
+  ],
+  "epics": [
+    {"id": "E1", "theme": "ST1", "pi": "PI-1", "status": "done", "name": "Multi-market scanner suite", "hypothesis": "One 5-stage pipeline (universe->OHLC->Darvas->fundamentals->Excel) generalises across markets."},
+    {"id": "E2", "theme": "ST1", "pi": "PI-3", "status": "done", "name": "Trendlyne-style DVM scoring & global screening", "hypothesis": "D/V/M scoring + public screen definitions extend to all markets with local data."},
+    {"id": "E3", "theme": "ST2", "pi": "PI-2", "status": "done", "name": "Point-in-time backtesting & factor research", "hypothesis": "Filed-date EDGAR data enables lookahead-free tests of the fundamental gate and classic factors."},
+    {"id": "E4", "theme": "ST2", "pi": "PI-2", "status": "done", "name": "Hybrid ML screen discovery", "hypothesis": "Supervised->unsupervised->RL-from-screeners can invent new, validated screens."},
+    {"id": "E5", "theme": "ST3", "pi": "PI-3", "status": "done", "name": "Data backbone", "hypothesis": "Cassandra (operational) + DuckDB (analytical) + Kafka/Flink/CDC removes the re-download bottleneck and scales."},
+    {"id": "E6", "theme": "ST3", "pi": "PI-4", "status": "done", "name": "Performance & rate-limit resilience", "hypothesis": "Caching, vectorisation, parallelism and centralised throttling make runs fast and limit-safe."},
+    {"id": "E7", "theme": "ST4", "pi": "PI-4", "status": "done", "name": "Security, integrity & documentation", "hypothesis": "Signed commits + branch protection + manifest + docs make the repo trustworthy and reproducible."},
+    {"id": "E8", "theme": "ST1", "pi": "PI-5", "status": "backlog", "name": "Serving layer & consumption", "hypothesis": "An API + dashboard over the warehouse turns results into a product surface."},
+    {"id": "E9", "theme": "ST3", "pi": "PI-5", "status": "backlog", "name": "Incremental analytics", "hypothesis": "Partition-incremental result refresh + ML feature cache make daily runs near-instant."}
+  ],
+  "features": [
+    {"id": "F1.1", "epic": "E1", "pi": "PI-1", "status": "done", "size": 8, "name": "US scanner (full system-integrated)", "module": "full_us_market_scan.py"},
+    {"id": "F1.2", "epic": "E1", "pi": "PI-1", "status": "done", "size": 8, "name": "India scanner", "module": "full_indian_market_scan.py"},
+    {"id": "F1.3", "epic": "E1", "pi": "PI-1", "status": "done", "size": 5, "name": "Japan/Korea/Europe scanners", "module": "full_{japan,korea,european}_market_scan.py"},
+    {"id": "F1.4", "epic": "E1", "pi": "PI-1", "status": "done", "size": 8, "name": "Industry/peer parquet dataset", "module": "build_industry_parquet.py, enrich_industries.py"},
+    {"id": "F1.5", "epic": "E1", "pi": "PI-1", "status": "done", "size": 5, "name": "Unlisted-firm enrichment (GLEIF)", "module": "unlisted_enrichment.py"},
+    {"id": "F2.1", "epic": "E2", "pi": "PI-2", "status": "done", "size": 8, "name": "Screener.in screen viability (net of cost)", "module": "screen_viability.py, apply_costs.py"},
+    {"id": "F2.2", "epic": "E2", "pi": "PI-3", "status": "done", "size": 5, "name": "DVM engine (US, EDGAR-backed)", "module": "dvm_engine.py"},
+    {"id": "F2.3", "epic": "E2", "pi": "PI-3", "status": "done", "size": 8, "name": "Global DVM technical (19 markets)", "module": "dvm_global.py"},
+    {"id": "F2.4", "epic": "E2", "pi": "PI-3", "status": "done", "size": 5, "name": "Global fundamentals sourcing", "module": "fundamentals_global.py"},
+    {"id": "F2.5", "epic": "E2", "pi": "PI-3", "status": "done", "size": 8, "name": "Global DVM composite (GGG classification)", "module": "dvm_composite.py"},
+    {"id": "F3.1", "epic": "E3", "pi": "PI-2", "status": "done", "size": 8, "name": "Point-in-time fundamentals (EDGAR, filed-date)", "module": "pit_fundamentals.py"},
+    {"id": "F3.2", "epic": "E3", "pi": "PI-2", "status": "done", "size": 8, "name": "Triple-Hit backtest (arms A/B/C)", "module": "pit_backtest.py"},
+    {"id": "F3.3", "epic": "E3", "pi": "PI-2", "status": "done", "size": 3, "name": "Net-of-cost analysis (tax+brokerage)", "module": "apply_costs.py"},
+    {"id": "F3.4", "epic": "E3", "pi": "PI-2", "status": "done", "size": 5, "name": "Factor research (Markowitz/Sharpe/Fama/FF)", "module": "factor_research.py"},
+    {"id": "F3.5", "epic": "E3", "pi": "PI-2", "status": "done", "size": 5, "name": "Cross-market ML viability", "module": "ml_viability.py"},
+    {"id": "F4.1", "epic": "E4", "pi": "PI-2", "status": "done", "size": 5, "name": "ML signal engine (Ridge, market-agnostic)", "module": "ml_signal_engine.py"},
+    {"id": "F4.2", "epic": "E4", "pi": "PI-2", "status": "done", "size": 8, "name": "Screen discovery (unsupervised + RL-from-screeners)", "module": "ml_screen_discovery.py"},
+    {"id": "F5.1", "epic": "E5", "pi": "PI-3", "status": "done", "size": 8, "name": "Cassandra OHLC cache", "module": "market_store.py"},
+    {"id": "F5.2", "epic": "E5", "pi": "PI-3", "status": "done", "size": 5, "name": "Kafka streaming work-queue", "module": "stream_pipeline.py"},
+    {"id": "F5.3", "epic": "E5", "pi": "PI-3", "status": "done", "size": 3, "name": "Flink streaming aggregation", "module": "flink_screens.py"},
+    {"id": "F5.4", "epic": "E5", "pi": "PI-3", "status": "done", "size": 8, "name": "Commit-log CDC -> Debezium -> Kafka", "module": "cdc/"},
+    {"id": "F5.5", "epic": "E5", "pi": "PI-3", "status": "done", "size": 5, "name": "DuckDB analytical warehouse", "module": "warehouse.py"},
+    {"id": "F5.6", "epic": "E5", "pi": "PI-3", "status": "done", "size": 3, "name": "Multi-market trading calendars", "module": "market_holidays.py"},
+    {"id": "F6.1", "epic": "E6", "pi": "PI-4", "status": "done", "size": 3, "name": "Cache-route all data scripts", "module": "ml_viability.py, screen_viability.py"},
+    {"id": "F6.2", "epic": "E6", "pi": "PI-4", "status": "done", "size": 5, "name": "Vectorise + parallelise dvm_global (13x)", "module": "dvm_global.py"},
+    {"id": "F6.3", "epic": "E6", "pi": "PI-4", "status": "done", "size": 3, "name": "Parallel ML walk-forward", "module": "ml_viability.py"},
+    {"id": "F6.4", "epic": "E6", "pi": "PI-4", "status": "done", "size": 3, "name": "Incremental delta OHLC fetches", "module": "market_store.py"},
+    {"id": "F6.5", "epic": "E6", "pi": "PI-4", "status": "done", "size": 5, "name": "Centralised rate-limit governance", "module": "apiclient.py"},
+    {"id": "F7.1", "epic": "E7", "pi": "PI-4", "status": "done", "size": 5, "name": "Signed commits + branch protection", "module": "SECURITY.md"},
+    {"id": "F7.2", "epic": "E7", "pi": "PI-4", "status": "done", "size": 2, "name": "Signed integrity manifest", "module": "verify_integrity.sh, CHECKSUMS.sha256"},
+    {"id": "F7.3", "epic": "E7", "pi": "PI-4", "status": "done", "size": 5, "name": "Docs, Colab, schema & architecture map", "module": "README.md, USER_GUIDE.md, SCHEMA.md, ARCHITECTURE_MAP.md, notebooks/"},
+    {"id": "F8.1", "epic": "E8", "pi": "PI-5", "status": "backlog", "size": 5, "name": "FastAPI serving endpoint over warehouse", "module": "serve.py (planned)"},
+    {"id": "F8.2", "epic": "E8", "pi": "PI-5", "status": "backlog", "size": 5, "name": "HTML results dashboard", "module": "dashboard (planned)"},
+    {"id": "F9.1", "epic": "E9", "pi": "PI-5", "status": "backlog", "size": 8, "name": "Partition-incremental result refresh", "module": "warehouse.py (planned)"},
+    {"id": "F9.2", "epic": "E9", "pi": "PI-5", "status": "backlog", "size": 5, "name": "ML feature-matrix cache", "module": "ml_viability.py (planned)"}
+  ],
+  "kpis": [
+    {"metric": "Markets covered", "value": "19"},
+    {"metric": "Tickers scored (DVM)", "value": "30,785"},
+    {"metric": "dvm_global runtime", "value": "105s -> 8.1s (13x)"},
+    {"metric": "Backtest rigor", "value": "point-in-time (no lookahead)"},
+    {"metric": "Rate-limit governance", "value": "centralised, per-source adaptive"},
+    {"metric": "Security", "value": "signed commits + branch protection + integrity PASSED"},
+    {"metric": "Documentation", "value": "17 docs + User Guide + Colab"}
+  ]
+}

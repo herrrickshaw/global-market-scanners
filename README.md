@@ -79,6 +79,7 @@ classification → fundamentals on breakout candidates → styled Excel export**
 - [User Guide](USER_GUIDE.md) — end-to-end workflows for every capability
 - [Security & Integrity](SECURITY.md) — signed commits, checksum manifest, branch protection
 - [Performance](PERFORMANCE.md) — measured bottlenecks & fixes
+- [SAFe delivery](safe/SAFE.md) — the platform as a queryable Scaled-Agile backlog (`safe/safe_backlog.py`)
 - [Architecture](ARCHITECTURE.md) — mapped to the Modern Data Architecture Blueprint
 - [Architecture Map](ARCHITECTURE_MAP.md) — data-flow + tier + ER diagrams (Mermaid)
 - [Data Schema](SCHEMA.md) — data dictionary for every store
