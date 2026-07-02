@@ -73,10 +73,14 @@ COVERED_THEMES = {
     "multifactor":    {"kw": ["five-factor", "q-factor", "factor zoo", "replicating anomalies",
                               "which factors", "multifactor model"],
                        "modules": ["factor_research.py", "meta_screen.py"]},
-    # closed by the scout->implement loop: PEAD was flagged as a gap, now implemented.
+    # closed by the scout->implement loop: PEAD and liquidity were flagged as gaps,
+    # then implemented (pead_factor.py, liquidity_factor.py).
     "pead_revisions": {"kw": ["post-earnings-announcement drift", "pead", "analyst revisions",
                               "earnings surprise", "estimate revision", "earnings momentum"],
                        "modules": ["pead_factor.py"]},
+    "liquidity":      {"kw": ["liquidity factor", "amihud illiquidity", "bid-ask spread",
+                              "turnover liquidity", "liquidity premium", "price impact"],
+                       "modules": ["liquidity_factor.py"]},
 }
 
 # ── FRONTIER themes the platform does NOT cover yet (a hit here = opportunity) ──
@@ -86,7 +90,6 @@ FRONTIER_THEMES = {
     "options_implied": ["implied volatility", "variance risk premium", "option-implied",
                         "volatility skew", "put-call ratio"],
     "short_crowding":  ["short interest", "factor crowding", "arbitrage capacity", "days to cover"],
-    "liquidity":       ["liquidity factor", "amihud illiquidity", "bid-ask spread", "turnover liquidity"],
     "seasonality":     ["seasonality", "january effect", "turn of the month", "sell in may"],
     "network":         ["supply chain momentum", "customer-supplier", "economic links", "network effects"],
     "esg_climate":     ["esg factor", "sustainable investing", "climate risk premium", "carbon risk"],

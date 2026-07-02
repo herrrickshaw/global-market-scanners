@@ -474,5 +474,40 @@ def test_drift_by_surprise_monotone_when_pead_present():
     assert monotonicity(curve) == pytest.approx(1.0)           # perfect PEAD ordering
 
 
+# ── liquidity_factor.py (Amihud illiquidity + liquidity premium) ──────────────
+def test_amihud_illiq_higher_for_thin_volume():
+    from liquidity_factor import amihud_illiq
+    rets = [0.02, -0.02, 0.01, -0.01, 0.02, -0.02]
+    liquid = amihud_illiq(rets, [1e9] * 6)                     # deep dollar-volume
+    thin = amihud_illiq(rets, [1e6] * 6)                       # thin dollar-volume
+    assert thin > liquid > 0                                   # same moves, less volume => more illiquid
+    assert np.isnan(amihud_illiq([0.01] * 6, [0] * 6))         # zero volume => undefined
+
+
+def test_capacity_score_inverts_illiquidity():
+    from liquidity_factor import capacity_score, illiq_pctile
+    illiq = pd.Series([0.1, 1.0, 10.0], index=["liq", "mid", "illiq"])
+    cap = capacity_score(illiq)
+    assert cap["liq"] > cap["mid"] > cap["illiq"]              # liquid name -> high capacity
+    pct = illiq_pctile(illiq)
+    assert pct["illiq"] > pct["liq"]                           # illiquid -> high ILLIQ percentile
+
+
+def test_zero_return_frac():
+    from liquidity_factor import zero_return_frac
+    assert zero_return_frac([0.0, 0.0, 0.05, -0.03]) == pytest.approx(0.5)
+
+
+def test_liquidity_premium_quantile_monotone():
+    from liquidity_factor import premium_by_illiq, monotonicity
+    rng = np.random.default_rng(7)
+    n = 500
+    illiq = np.abs(rng.normal(1, 0.5, n))
+    fwd = 0.05 * illiq + rng.normal(0, 0.005, n)               # illiquid earn more (premium)
+    curve = premium_by_illiq(pd.DataFrame({"illiq": illiq, "fwd_ret": fwd}), q=5)
+    assert list(curve["mean_fwd%"]) == sorted(curve["mean_fwd%"])   # Q1<...<Q5
+    assert monotonicity(curve) == pytest.approx(1.0)
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

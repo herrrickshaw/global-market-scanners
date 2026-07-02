@@ -37,9 +37,9 @@ import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-DEFAULT_WEIGHTS = {"durability": 0.22, "valuation": 0.13, "momentum": 0.18,
-                   "ml_signal": 0.17, "quality": 0.18, "pead": 0.12}
-# quality = AFP/QMJ score; pead = post-earnings-announcement drift signal
+DEFAULT_WEIGHTS = {"durability": 0.20, "valuation": 0.12, "momentum": 0.16,
+                   "ml_signal": 0.16, "quality": 0.16, "pead": 0.12, "liquidity": 0.08}
+# quality = AFP/QMJ score; pead = post-earnings drift; liquidity = tradeability/capacity
 GATE_BONUS = 10.0          # points added for clearing a hard gate (capped at 100)
 
 
@@ -76,7 +76,8 @@ def rank(df: pd.DataFrame, weights: dict = None) -> pd.DataFrame:
     for _, r in out.iterrows():
         comps = {"durability": r.get("D"), "valuation": r.get("V"),
                  "momentum": r.get("M"), "ml_signal": r.get("ml_signal"),
-                 "quality": r.get("quality_score"), "pead": r.get("pead_score")}
+                 "quality": r.get("quality_score"), "pead": r.get("pead_score"),
+                 "liquidity": r.get("liquidity_score")}
         gates = {"triple_hit": bool(r.get("triple_hit", False))}
         conv.append(fuse(comps, weights, gates))
     out["conviction"] = np.round(conv, 1)
@@ -121,6 +122,8 @@ def main():
                     help="CSV with ticker,quality_score (0-100) from quality_factor.py --out")
     ap.add_argument("--pead", default=None,
                     help="CSV with ticker,pead_score (0-100) from pead_factor.py --out")
+    ap.add_argument("--liquidity", default=None,
+                    help="CSV with ticker,liquidity_score (0-100) from liquidity_factor.py --out")
     ap.add_argument("--triple-hits", default=None, help="CSV with ticker column (Triple-Hit names)")
     args = ap.parse_args()
 
@@ -130,6 +133,7 @@ def main():
     df = _merge_optional(df, args.ml, "ml_signal")
     df = _merge_optional(df, args.quality, "quality_score")
     df = _merge_optional(df, args.pead, "pead_score")
+    df = _merge_optional(df, args.liquidity, "liquidity_score")
     if args.triple_hits and os.path.exists(args.triple_hits):
         th = set(pd.read_csv(args.triple_hits)["ticker"].astype(str))
         df["triple_hit"] = df["ticker"].astype(str).isin(th)

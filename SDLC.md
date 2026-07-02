@@ -28,9 +28,9 @@ Now:
   metrics, meta-screen fusion, FX, incremental refresh, feature-cache keys, serve
   query/injection guard, data-quality rules) plus the AFP/QMJ quality factor
   (standardised ranks, dimension scoring, QMJ/LQ combination, price-premium test).
-  `pytest -q` → **48 passed** (incl. the literature scout's relevance scoring,
-  covered/gap classification, dedup and report rendering, and the PEAD event-study
-  core — event detection, market-adjusted CAR, drift-by-surprise monotonicity).
+  `pytest -q` → **52 passed** (incl. the literature scout's relevance scoring,
+  covered/gap classification, dedup and report rendering, the PEAD event-study core,
+  and the Amihud liquidity core — ILLIQ, capacity score, liquidity-premium quantiles).
 - **`.github/workflows/ci.yml`** — on every push/PR to `main`:
   1. **Unit tests** (SDLC Integration & Testing)
   2. **Architecture governance** — `togaf.py govern` (10/10 principles must stay compliant)
