@@ -36,6 +36,8 @@ import sys
 
 import duckdb
 
+import incremental   # F9.1 partition-incremental refresh (pure pandas helpers)
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 SEED = os.path.expanduser("~/Downloads/code/python_files/cache_seed")
 DB = os.path.join(HERE, "market.duckdb")
@@ -103,13 +105,33 @@ SHOWS = {
 }
 
 
+def refresh_ohlc_partition(market: str, new_parquet: str) -> dict:
+    """F9.1: append only genuinely new dates from `new_parquet` into a market's
+    cleaned_long parquet (per-symbol high-water mark), instead of rebuilding it.
+    Returns a small summary of what was appended."""
+    import pandas as pd
+    base_path = os.path.join(SEED, f"cleaned_long_{market}.parquet")
+    base = pd.read_parquet(base_path) if os.path.exists(base_path) else pd.DataFrame()
+    new = pd.read_parquet(new_parquet)
+    merged = incremental.append_new_dates(base, new, date_col="Date", key_col="Symbol")
+    added = len(merged) - len(base)
+    merged.to_parquet(base_path, index=False, compression="snappy")
+    return {"market": market, "rows_before": len(base), "rows_added": added,
+            "rows_after": len(merged)}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--build", action="store_true")
     ap.add_argument("--show", choices=[k for k in SHOWS if k != "industry_segments"])
     ap.add_argument("--filter", help="ad-hoc predicate over the dvm_composite⋈fundamentals join")
     ap.add_argument("--sql", help="run arbitrary SQL")
+    ap.add_argument("--refresh-ohlc", nargs=2, metavar=("MARKET", "NEW_PARQUET"),
+                    help="F9.1: incrementally append new dates into a market's parquet")
     args = ap.parse_args()
+
+    if args.refresh_ohlc:
+        print(refresh_ohlc_partition(*args.refresh_ohlc)); return
 
     con = duckdb.connect(DB)
     # DuckDB sqlite ATTACHments are per-session, so (re)build views every run — it's

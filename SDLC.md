@@ -9,7 +9,7 @@ and — the key learning — closes the one phase this project had been skipping
 | **Initiation / Concept** | Vision & scope — README, SAFe Strategic Themes, the signal-to-decision value stream |
 | **Planning & Requirements** | SAFe backlog (`safe/backlog.json`), PERFORMANCE roadmap, TOGAF Requirements Mgmt |
 | **Design** | TOGAF architecture (`architecture/`), `ARCHITECTURE.md`/`ARCHITECTURE_MAP.md`, `SCHEMA.md` |
-| **Development** | ~30 modules — scanners, DVM, backtest, ML discovery, warehouse, apiclient |
+| **Development** | ~40 modules — scanners, DVM, backtest, ML discovery, warehouse, apiclient, decision layer (portfolio/risk/meta/rotation/alerts/comps), global PIT, FX, serving, data quality |
 | **Integration & Testing** | **NEW: `tests/` (pytest) + `.github/workflows/ci.yml`** — runs on every push |
 | **Implementation / Deployment** | `git push` + LFS dataset; private `market-data-artifacts` backup |
 | **Operations & Maintenance** | Cassandra cache + incremental delta fetches, `apiclient` rate governance, `market_holidays` run-gating |
@@ -20,11 +20,13 @@ The project was built iteratively (SDLC's iterative/agile model — each feature
 and smoke-tested), but had **no automated test suite or CI** — the classic weak spot.
 Now:
 
-- **`tests/test_core.py`** — 10 unit tests over the deterministic core logic, no network
+- **`tests/test_core.py`** — 30 unit tests over the deterministic core logic, no network
   or DB needed: trading calendars, the rate limiter (interval + adaptive penalty),
   the net-of-cost model, **point-in-time filing-date filtering** (regression-guards the
   quarterly-vs-annual bug that was fixed earlier), feature engineering, the factor OLS,
-  and DVM durability scoring. `pytest -q` → **10 passed**.
+  and DVM durability scoring — plus the PI-6 decision layer (portfolio caps, risk
+  metrics, meta-screen fusion, FX, incremental refresh, feature-cache keys, serve
+  query/injection guard, data-quality rules). `pytest -q` → **30 passed**.
 - **`.github/workflows/ci.yml`** — on every push/PR to `main`:
   1. **Unit tests** (SDLC Integration & Testing)
   2. **Architecture governance** — `togaf.py govern` (10/10 principles must stay compliant)

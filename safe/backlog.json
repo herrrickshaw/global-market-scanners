@@ -14,7 +14,8 @@
     {"id": "PI-2", "name": "Research & ML", "objectives": ["Point-in-time backtest engine", "Factor research (4 papers)", "Hybrid ML screen discovery"]},
     {"id": "PI-3", "name": "Global scoring & data backbone", "objectives": ["Trendlyne DVM across 19 markets", "Cassandra/Kafka/Flink + DuckDB warehouse"]},
     {"id": "PI-4", "name": "Hardening", "objectives": ["Performance (13x) + rate-limit governance", "Security, integrity, full docs"]},
-    {"id": "PI-5", "name": "Serving & incremental analytics (planned)", "objectives": ["API/dashboard serving layer", "Partition-incremental results + ML feature cache"]}
+    {"id": "PI-5", "name": "Serving & incremental analytics", "objectives": ["API/dashboard serving layer", "Partition-incremental results + ML feature cache"]},
+    {"id": "PI-6", "name": "Decision layer, global rigor & observability", "objectives": ["Portfolio/risk/meta-screen/rotation/alerts decision layer", "Global point-in-time backtest + FX normalisation", "Data-quality observability"]}
   ],
   "epics": [
     {"id": "E1", "theme": "ST1", "pi": "PI-1", "status": "done", "name": "Multi-market scanner suite", "hypothesis": "One 5-stage pipeline (universe->OHLC->Darvas->fundamentals->Excel) generalises across markets."},
@@ -24,8 +25,11 @@
     {"id": "E5", "theme": "ST3", "pi": "PI-3", "status": "done", "name": "Data backbone", "hypothesis": "Cassandra (operational) + DuckDB (analytical) + Kafka/Flink/CDC removes the re-download bottleneck and scales."},
     {"id": "E6", "theme": "ST3", "pi": "PI-4", "status": "done", "name": "Performance & rate-limit resilience", "hypothesis": "Caching, vectorisation, parallelism and centralised throttling make runs fast and limit-safe."},
     {"id": "E7", "theme": "ST4", "pi": "PI-4", "status": "done", "name": "Security, integrity & documentation", "hypothesis": "Signed commits + branch protection + manifest + docs make the repo trustworthy and reproducible."},
-    {"id": "E8", "theme": "ST1", "pi": "PI-5", "status": "backlog", "name": "Serving layer & consumption", "hypothesis": "An API + dashboard over the warehouse turns results into a product surface."},
-    {"id": "E9", "theme": "ST3", "pi": "PI-5", "status": "backlog", "name": "Incremental analytics", "hypothesis": "Partition-incremental result refresh + ML feature cache make daily runs near-instant."}
+    {"id": "E8", "theme": "ST1", "pi": "PI-5", "status": "done", "name": "Serving layer & consumption", "hypothesis": "An API + dashboard over the warehouse turns results into a product surface."},
+    {"id": "E9", "theme": "ST3", "pi": "PI-5", "status": "done", "name": "Incremental analytics", "hypothesis": "Partition-incremental result refresh + ML feature cache make daily runs near-instant."},
+    {"id": "E10", "theme": "ST1", "pi": "PI-6", "status": "done", "name": "Decision & risk layer", "hypothesis": "Fusing screens into a conviction score and turning signals into constrained, risk-measured portfolios converts research into decisions."},
+    {"id": "E11", "theme": "ST2", "pi": "PI-6", "status": "done", "name": "Multi-market rigor", "hypothesis": "A price-based point-in-time backtest and FX-normalised comparison make all 19 markets rigorously comparable, not just the US."},
+    {"id": "E12", "theme": "ST4", "pi": "PI-6", "status": "done", "name": "Data observability", "hypothesis": "Freshness/completeness/outlier checks on the data (not just the code) catch silent data rot."}
   ],
   "features": [
     {"id": "F1.1", "epic": "E1", "pi": "PI-1", "status": "done", "size": 8, "name": "US scanner (full system-integrated)", "module": "full_us_market_scan.py"},
@@ -59,10 +63,19 @@
     {"id": "F7.1", "epic": "E7", "pi": "PI-4", "status": "done", "size": 5, "name": "Signed commits + branch protection", "module": "SECURITY.md"},
     {"id": "F7.2", "epic": "E7", "pi": "PI-4", "status": "done", "size": 2, "name": "Signed integrity manifest", "module": "verify_integrity.sh, CHECKSUMS.sha256"},
     {"id": "F7.3", "epic": "E7", "pi": "PI-4", "status": "done", "size": 5, "name": "Docs, Colab, schema & architecture map", "module": "README.md, USER_GUIDE.md, SCHEMA.md, ARCHITECTURE_MAP.md, notebooks/"},
-    {"id": "F8.1", "epic": "E8", "pi": "PI-5", "status": "backlog", "size": 5, "name": "FastAPI serving endpoint over warehouse", "module": "serve.py (planned)"},
-    {"id": "F8.2", "epic": "E8", "pi": "PI-5", "status": "backlog", "size": 5, "name": "HTML results dashboard", "module": "dashboard (planned)"},
-    {"id": "F9.1", "epic": "E9", "pi": "PI-5", "status": "backlog", "size": 8, "name": "Partition-incremental result refresh", "module": "warehouse.py (planned)"},
-    {"id": "F9.2", "epic": "E9", "pi": "PI-5", "status": "backlog", "size": 5, "name": "ML feature-matrix cache", "module": "ml_viability.py (planned)"}
+    {"id": "F8.1", "epic": "E8", "pi": "PI-5", "status": "done", "size": 5, "name": "FastAPI serving endpoint over warehouse", "module": "serve.py"},
+    {"id": "F8.2", "epic": "E8", "pi": "PI-5", "status": "done", "size": 5, "name": "HTML results dashboard", "module": "dashboard.py"},
+    {"id": "F9.1", "epic": "E9", "pi": "PI-5", "status": "done", "size": 8, "name": "Partition-incremental result refresh", "module": "incremental.py, warehouse.py"},
+    {"id": "F9.2", "epic": "E9", "pi": "PI-5", "status": "done", "size": 5, "name": "ML feature-matrix cache", "module": "feature_cache.py, ml_viability.py"},
+    {"id": "F10.1", "epic": "E10", "pi": "PI-6", "status": "done", "size": 8, "name": "Constrained portfolio construction (min-var/max-Sharpe, position/sector caps, turnover)", "module": "portfolio.py"},
+    {"id": "F10.2", "epic": "E10", "pi": "PI-6", "status": "done", "size": 5, "name": "Risk layer (drawdown/VaR/CVaR/Sharpe/Sortino/regime)", "module": "risk.py"},
+    {"id": "F10.3", "epic": "E10", "pi": "PI-6", "status": "done", "size": 5, "name": "Meta-screen ensemble conviction score", "module": "meta_screen.py"},
+    {"id": "F10.4", "epic": "E10", "pi": "PI-6", "status": "done", "size": 5, "name": "Sector/industry rotation model", "module": "sector_rotation.py"},
+    {"id": "F10.5", "epic": "E10", "pi": "PI-6", "status": "done", "size": 3, "name": "Partition-diff alerting (env-only SMTP)", "module": "alerts.py"},
+    {"id": "F10.6", "epic": "E10", "pi": "PI-6", "status": "done", "size": 5, "name": "Unlisted-firm comparable-company valuation", "module": "unlisted_valuation.py"},
+    {"id": "F11.1", "epic": "E11", "pi": "PI-6", "status": "done", "size": 8, "name": "Global point-in-time (price-based) backtest, 18 non-US markets", "module": "pit_global.py"},
+    {"id": "F11.2", "epic": "E11", "pi": "PI-6", "status": "done", "size": 5, "name": "FX normalisation for cross-market comparison", "module": "fx.py"},
+    {"id": "F12.1", "epic": "E12", "pi": "PI-6", "status": "done", "size": 5, "name": "Data-quality observability (freshness/nulls/outliers) + CLI gate", "module": "data_quality.py"}
   ],
   "kpis": [
     {"metric": "Markets covered", "value": "19"},
@@ -71,6 +84,9 @@
     {"metric": "Backtest rigor", "value": "point-in-time (no lookahead)"},
     {"metric": "Rate-limit governance", "value": "centralised, per-source adaptive"},
     {"metric": "Security", "value": "signed commits + branch protection + integrity PASSED"},
-    {"metric": "Documentation", "value": "17 docs + User Guide + Colab"}
+    {"metric": "Documentation", "value": "18 docs + User Guide + Colab"},
+    {"metric": "Decision layer", "value": "portfolio + risk + meta-screen + rotation + alerts"},
+    {"metric": "Backtest coverage", "value": "US filed-date PIT + 18 markets price-based PIT"},
+    {"metric": "Test suite", "value": "30 unit tests, CI-gated (pytest + govern + integrity)"}
   ]
 }

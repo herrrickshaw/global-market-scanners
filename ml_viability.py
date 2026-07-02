@@ -42,6 +42,8 @@ from ml_signal_engine import (
     BULLISH_THRESHOLD, BEARISH_THRESHOLD,
 )
 
+import feature_cache   # F9.2 ML feature-matrix cache (recompute only on data change)
+
 warnings.filterwarnings("ignore")
 
 # Representative liquid universe per market (yfinance symbols). Index heavyweights
@@ -74,12 +76,12 @@ MIN_NEEDED = LOOKBACK + TRAIN_WINDOW + PREDICT_DAYS + 250  # ~ enough for a few 
 
 def _eval_ticker_wf(args):
     """Walk-forward eval for ONE ticker (runs in a worker process). Returns partial stats."""
-    df, step, model_type = args
+    ticker, df, step, model_type = args
     eng = MLSignalEngine(model_type=model_type)
     nc = nt = bh = bn = 0
     act, pred, bull, allr = [], [], [], []
     try:
-        feats = compute_features(df)
+        feats = feature_cache.cached_features(ticker, df, compute_features)
         close = df["Close"].astype(float).reindex(feats.index)
         target = close.pct_change(PREDICT_DAYS).shift(-PREDICT_DAYS) * 100
         aligned = feats.join(target.rename("t"), how="inner").dropna()
@@ -111,7 +113,7 @@ def evaluate_market(name, ohlc, engine, step, workers=None):
     from concurrent.futures import ProcessPoolExecutor
     n_correct = n_total = bull_hits = bull_n = 0
     actuals, preds, bull_rets, all_rets = [], [], [], []
-    tasks = [(df, step, engine.model_type) for df in ohlc.values()]
+    tasks = [(k, df, step, engine.model_type) for k, df in ohlc.items()]
     with ProcessPoolExecutor(max_workers=workers) as ex:
         for nc, nt, act, pr, bl, ar, bh, bn in ex.map(_eval_ticker_wf, tasks):
             n_correct += nc; n_total += nt; bull_hits += bh; bull_n += bn

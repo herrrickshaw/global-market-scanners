@@ -28,4 +28,13 @@ fund_screen.db
 fundamentals_cache.db
 dvm_composite.db
 market.duckdb
+pit_global.db
 .pytest_cache/
+
+# PI-6 decision-layer / serving generated runtime artifacts (rebuilt on demand)
+feature_cache/
+alerts_state/
+fx_rates.json
+dashboard.html
+portfolio_*.json
+alert_*.json

@@ -26,6 +26,9 @@ across 19 markets, and a Cassandra/Kafka/Flink data backbone.
 | **Factor research** | `factor_research.py` | Test Markowitz/Sharpe/Fama/Fama-French as falsifiable proposals |
 | **ML screen discovery** | `ml_screen_discovery.py` | Supervised → Unsupervised (new screens) → RL-from-screeners |
 | **DVM / Trendlyne** | `dvm_engine.py`, `dvm_global.py`, `fundamentals_global.py`, `dvm_composite.py` | Durability/Valuation/Momentum scoring + GGG classification across 19 markets |
+| **Decision layer** | `portfolio.py`, `risk.py`, `meta_screen.py`, `sector_rotation.py`, `alerts.py`, `unlisted_valuation.py` | Signals → constrained portfolios, risk/VaR, ensemble conviction, sector rotation, alerts, private-firm comps |
+| **Global rigor** | `pit_global.py`, `fx.py` | Price-based point-in-time backtest for 18 non-US markets + FX-normalised cross-market comparison |
+| **Serving & observability** | `serve.py`, `dashboard.py`, `incremental.py`, `feature_cache.py`, `data_quality.py` | FastAPI + HTML dashboard over the warehouse, partition-incremental refresh, ML feature cache, data-quality monitor |
 | **Dataset** | `build_industry_parquet.py`, `enrich_industries.py`, `unlisted_enrichment.py` | Industry/peer parquet + unlisted-firm enrichment |
 | **Data backbone** | `market_store.py` (Cassandra), `stream_pipeline.py` (Kafka), `flink_screens.py`, `cdc/` | Persistent OHLC cache, streaming, CDC |
 | **Utilities** | `market_holidays.py`, `market_data_cache.py`, `stock_utils.py` | Trading calendars, caching, helpers |
@@ -97,6 +100,9 @@ classification → fundamentals on breakout candidates → styled Excel export**
 - [Screen viability results](SCREEN_VIABILITY_RESULTS.md) · [Net of cost](NET_OF_COST.md)
 - [Point-in-time fundamentals scope](SCOPE_PIT_FUNDAMENTALS.md) · [PIT backtest results](PIT_BACKTEST_RESULTS.md)
 - [ML viability](ML_VIABILITY.md) · [Factor research](FACTOR_RESEARCH.md)
+
+**Decision layer & consumption**
+- [Decision layer, global rigor & observability](DECISION_LAYER.md) — portfolio / risk / meta-screen / rotation / alerts / comps + global PIT + FX + data quality + serving
 
 ---
 
