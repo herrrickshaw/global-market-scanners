@@ -149,9 +149,9 @@ def _load_facts(ticker: str) -> Optional[dict]:
     if cached is not None:
         return cached
     try:
-        r = requests.get(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json",
-                         headers=_UA, timeout=30)
-        time.sleep(0.12)  # SEC fair-access
+        from apiclient import http_get   # governed: SEC fair-access throttle + backoff
+        r = http_get("edgar", f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json",
+                     headers=_UA)
         if r.status_code != 200:
             _conn.execute("INSERT OR REPLACE INTO fetched VALUES (?)", (cik,))  # negative-cache
             _conn.commit()

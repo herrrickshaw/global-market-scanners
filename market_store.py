@@ -147,7 +147,7 @@ def cached_download(tickers, years: int = 5, refresh_days: int = 3) -> dict:
     """OHLC for tickers: served from Cassandra when fresh, else downloaded and
     written back. Returns {ticker: DataFrame}. Falls back to pure yfinance if
     Cassandra is down."""
-    import yfinance as yf
+    from apiclient import yf_download   # governed, deduped, chunked, rate-limited
     out, misses = {}, []
     fresh_cut = date.today() - timedelta(days=refresh_days + 4)   # allow weekend/holiday gap
     # require coverage back to ~years, minus a 30d buffer (a "5y" yfinance pull
@@ -170,33 +170,17 @@ def cached_download(tickers, years: int = 5, refresh_days: int = 3) -> dict:
         print(f"  [market_store] {len(stale)} stale -> fetching only new bars since last cache…",
               file=sys.stderr, flush=True)
         for t, last in stale:
-            try:
-                new = yf.download(t, start=str(last + timedelta(days=1)), auto_adjust=True,
-                                  progress=False)
-                if new is not None and not new.empty:
-                    if isinstance(new.columns, pd.MultiIndex):
-                        new = new.xs(t, axis=1, level=1) if t in new.columns.get_level_values(1) else new
-                    put_ohlc(t, new.dropna(how="all"))   # upsert (PK = ticker,d) — idempotent
-            except Exception:
-                pass
+            new = yf_download([t], start=str(last + timedelta(days=1))).get(t)
+            if new is not None and not new.empty:
+                put_ohlc(t, new)                 # upsert (PK = ticker,d) — idempotent
             out[t] = get_ohlc(t)
 
     if misses:
         print(f"  [market_store] {len(out)} from Cassandra, downloading {len(misses)} misses…",
               file=sys.stderr, flush=True)
-        for i in range(0, len(misses), 250):
-            batch = misses[i:i + 250]
-            data = yf.download(batch, period=f"{years}y", auto_adjust=True,
-                               progress=False, group_by="ticker", threads=True)
-            for t in batch:
-                try:
-                    df = data[t] if isinstance(data.columns, pd.MultiIndex) else data
-                    df = df.dropna(how="all")
-                    if df is not None and not df.empty:
-                        out[t] = df
-                        put_ohlc(t, df)
-                except Exception:
-                    continue
+        for t, df in yf_download(misses, period=f"{years}y").items():
+            out[t] = df
+            put_ohlc(t, df)
     elif not stale:
         print(f"  [market_store] all {len(out)} tickers served from Cassandra (no network)",
               file=sys.stderr, flush=True)

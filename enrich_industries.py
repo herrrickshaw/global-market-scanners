@@ -49,21 +49,16 @@ def save_cache(cache):
 
 
 def fetch_one(ticker, retries=4):
-    """Fetch sector/industry, retrying through Yahoo's intermittent 401 crumb throttle."""
-    import yfinance as yf
-    last = ""
-    for attempt in range(retries):
-        try:
-            info = yf.Ticker(ticker).get_info()
-            sec, ind = info.get("sector"), info.get("industry")
-            if sec or ind:
-                return ticker, {"sector": sec, "industry": ind}
-            last = "empty"
-        except Exception as e:
-            last = str(e)[:80]
-        # backoff on throttle / empty; longer each attempt + jitter
-        time.sleep(1.5 * (attempt + 1) + random.uniform(0, 1.0))
-    return ticker, {"sector": None, "industry": None, "_err": last}
+    """Fetch sector/industry via the governed client (throttle + adaptive backoff)."""
+    from apiclient import yf_info
+    try:
+        info = yf_info(ticker)
+        sec, ind = info.get("sector"), info.get("industry")
+        if sec or ind:
+            return ticker, {"sector": sec, "industry": ind}
+    except Exception as e:
+        return ticker, {"sector": None, "industry": None, "_err": str(e)[:80]}
+    return ticker, {"sector": None, "industry": None, "_err": "empty"}
 
 
 def main():

@@ -70,12 +70,10 @@ def _norm_de(x):
 
 
 def fetch_one(ticker, retries=4):
-    import yfinance as yf
-    for a in range(retries):
-        try:
-            i = yf.Ticker(ticker).get_info()
-            if not i or "marketCap" not in i:
-                raise ValueError("empty")
+    from apiclient import yf_info      # governed: throttled + backoff + retry
+    try:
+        i = yf_info(ticker)
+        if i and "marketCap" in i:
             roe = i.get("returnOnEquity"); roa = i.get("returnOnAssets")
             return ticker, dict(
                 pe=_fin(i.get("trailingPE")), pb=_fin(i.get("priceToBook")),
@@ -87,8 +85,8 @@ def fetch_one(ticker, retries=4):
                 op_margin=(i.get("operatingMargins") or 0) * 100 if i.get("operatingMargins") is not None else None,
                 div_yield=(i.get("dividendYield") or 0) if i.get("dividendYield") is not None else None,
                 mktcap=i.get("marketCap"), sector=i.get("sector"))
-        except Exception:
-            time.sleep(1.5 * (a + 1) + random.uniform(0, 1))
+    except Exception:
+        pass
     return ticker, None
 
 

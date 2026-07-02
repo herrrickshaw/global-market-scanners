@@ -24,6 +24,14 @@ throttled.
   re-downloads — ✅ used by `pit_backtest`, `factor_research`, and now **`ml_viability`
   and `screen_viability`** (routed through the cache; verified serving "from Cassandra,
   no network"). `fundamentals_global` has its own resumable cache.
+- ✅ **Centralised rate-limit governance — `apiclient.py`.** Every external source now
+  goes through one throttle: per-source **min-interval + max-concurrency** caps
+  (yfinance 0.4 s/3, EDGAR 0.12 s/5, GLEIF, Wikidata 1/min…), **adaptive backoff**
+  (auto-slows on 429 / "crumb" / 401, decays back when healthy), and retry with
+  exponential backoff + jitter. yfinance calls are **deduped and chunked** (≤50/batch)
+  to avoid the crumb storms that hit above ~3 workers. Wired into `market_store`,
+  `fundamentals_global`, `enrich_industries`, and `pit_fundamentals` (EDGAR) — so no
+  code path can exceed a source's limits, and call count is minimised (dedup + cache-first).
 - **Prefer local parquets for bulk** — `dvm_global`/`dvm_composite` read
   `cleaned_long_*.parquet` (0.2 s/market) instead of yfinance ✅. Biggest single win:
   point every full-universe scan at the parquet/Cassandra layer, not the network.
