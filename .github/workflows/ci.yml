@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          lfs: false                 # tests don't need the LFS parquet data
+          lfs: true                  # need real LFS content so file hashes match the manifest
 
       - uses: actions/setup-python@v5
         with:
