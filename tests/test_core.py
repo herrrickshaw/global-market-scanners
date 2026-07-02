@@ -921,5 +921,14 @@ def test_per_market_summary_ranks_by_illiq_ic():
     assert summ.iloc[0]["illiq_IC"] > summ.iloc[1]["illiq_IC"]
 
 
+def test_parse_submissions_filters_earnings_forms():
+    from earnings_liquidity import parse_submissions
+    payload = {"filings": {"recent": {
+        "form": ["10-Q", "8-K", "10-K", "4", "10-Q"],
+        "filingDate": ["2026-05-01", "2026-04-15", "2025-10-31", "2025-10-20", "2025-08-01"]}}}
+    dates = parse_submissions(payload)                               # 10-Q/10-K only
+    assert dates == ["2025-08-01", "2025-10-31", "2026-05-01"]       # sorted, 8-K & Form-4 dropped
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

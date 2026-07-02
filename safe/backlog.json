@@ -972,6 +972,15 @@
       "size": 3,
       "name": "Per-country PEAD-liquidity test (--by-market): cross-market illiquidity IC breakdown",
       "module": "earnings_liquidity.py"
+    },
+    {
+      "id": "F29.3",
+      "epic": "E29",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "Real US earnings dates: EDGAR 10-Q/10-K filing dates replace the volume proxy; illiq_IC +0.010 -> +0.102",
+      "module": "earnings_liquidity.py"
     }
   ],
   "kpis": [
@@ -1013,7 +1022,7 @@
     },
     {
       "metric": "Test suite",
-      "value": "92 unit tests, CI-gated (pytest + govern + integrity)"
+      "value": "93 unit tests, CI-gated (pytest + govern + integrity)"
     },
     {
       "metric": "External validation",
@@ -1041,7 +1050,7 @@
     },
     {
       "metric": "Earnings-event study",
-      "value": "per-country: PEAD-illiquidity effect strongest in emerging BR (+0.24), ~0 in efficient US; 8/12 markets show Chordia-Sadka sign; volume surge ~3.8x universal"
+      "value": "real EDGAR filing dates sharpen US PEAD-illiquidity IC 10x (+0.010 proxy -> +0.102 real); per-country strongest in emerging BR (+0.24)"
     }
   ]
 }

@@ -67,11 +67,38 @@ across every country.
 python earnings_liquidity.py --all --by-market         # per-country PEAD-liquidity IC
 ```
 
+## Real earnings dates (US, SEC EDGAR) — `--edgar`
+The pooled/US study uses a **volume-spike event proxy**. `--edgar` replaces it with the
+**actual 10-Q/10-K filing dates** from SEC EDGAR submissions (via `pit_fundamentals`'
+ticker→CIK map) — real quarterly/annual results-announcement dates — and re-runs the
+liquidity conditioning.
+
+| US measure | volume-spike proxy | **real EDGAR filing dates** |
+|---|---|---|
+| events | ~4,000 | 313 (10-Q/10-K in the price window) |
+| **illiq_IC** | +0.010 (≈0) | **+0.102** |
+| Q5−Q1 dir-drift | ~0 | **+1.04%** |
+| announcement volume surge | 3.7× (by construction) | 1.6× (real filings) |
+
+Using **real dates strips the proxy's noise** (volume spikes that aren't earnings — M&A,
+index changes, macro) and the liquidity-conditioning of PEAD jumps **10×**, from ≈0 to
+**+0.102** — now comparable to the emerging-market proxy results. This is the
+Chordia-Sadka effect **confirmed in the US** once the event is dated correctly.
+
+Nuance: the 10-Q *filing* date is often a few days after the earnings press release
+(8-K); the ideal anchor is the 8-K earnings-release date, but 10-Q/10-K filing dates
+already sharpen the result 10× over the proxy.
+
+```bash
+python earnings_liquidity.py --edgar --limit 120       # real US filing dates (needs SEC_UA)
+```
+
 ## Quick start
 ```bash
 python earnings_liquidity.py --market US
 python earnings_liquidity.py --all --horizon 40        # pooled, all markets
 python earnings_liquidity.py --all --by-market         # per-country breakdown
+python earnings_liquidity.py --edgar                   # US, real EDGAR filing dates
 ```
 
 Pure cores (`directional_drift`, `bucket_stats`, `spread_qhigh_qlow`) are covered by

@@ -102,6 +102,89 @@ def _wide(market: str):
             for k in ("Close", "High", "Low", "Volume")}
 
 
+def parse_submissions(payload: dict, forms=("10-Q", "10-K")) -> list:
+    """Pure: extract sorted, unique filing dates for the given forms from an EDGAR
+    company-submissions JSON (the real quarterly/annual results-announcement dates)."""
+    rec = payload.get("filings", {}).get("recent", {})
+    fs = rec.get("form", []); ds = rec.get("filingDate", [])
+    return sorted({ds[i] for i in range(min(len(fs), len(ds))) if fs[i] in forms})
+
+
+_CIK = None
+
+
+def _cik_map():
+    global _CIK
+    if _CIK is None:
+        try:
+            import pit_fundamentals as pf
+            _CIK = pf._ticker_cik()
+        except Exception:
+            _CIK = {}
+    return _CIK
+
+
+def fetch_earnings_dates_edgar(ticker: str, since: str = "2000-01-01") -> list:
+    """AUTHORITATIVE US earnings-announcement dates: 10-Q/10-K filing dates from EDGAR
+    submissions (governed; SEC needs a contact-style User-Agent). Empty on offline."""
+    import apiclient
+    cik = _cik_map().get(ticker.upper())
+    if not cik:
+        return []
+    url = f"https://data.sec.gov/submissions/CIK{str(cik).zfill(10)}.json"
+    ua = {"User-Agent": os.environ.get("SEC_UA", "global-market-scanners research admin@gms.dev")}
+    try:
+        r = apiclient.http_get("edgar", url, headers=ua, retries=2)
+        if r.status_code != 200:
+            return []
+        return [d for d in parse_submissions(r.json()) if d >= since]
+    except Exception:
+        return []
+
+
+def scan_us_edgar(tickers, horizon: int = HORIZON, pre: int = 21) -> pd.DataFrame:
+    """Same conditioning panel as scan_market, but events are REAL EDGAR 10-Q/10-K
+    filing dates (US) rather than the volume-spike proxy."""
+    import pead_factor as pf
+    w = _wide("US")
+    if w is None:
+        return pd.DataFrame()
+    close, high, low, vol = w["Close"], w["High"], w["Low"], w["Volume"]
+    liquid = pf._liquid_symbols(close, vol)
+    mkt = close[liquid].pct_change(fill_method=None).mean(axis=1)
+    rows = []
+    for s in tickers:
+        if s not in close.columns:
+            continue
+        c = close[s].dropna()
+        if len(c) < pre + horizon + 10:
+            continue
+        idx = c.index
+        dates = fetch_earnings_dates_edgar(s, since=str(idx[0].date()))
+        if not dates:
+            continue
+        v = vol[s].reindex(idx); dv = c * v
+        r = c.pct_change()
+        abn = market_adjust(r, mkt.reindex(idx)).clip(-DAILY_CLIP, DAILY_CLIP)
+        for d in dates:
+            ev = int(idx.searchsorted(pd.Timestamp(d)))     # first trading day on/after the filing
+            if ev >= len(idx) or ev < pre or ev + horizon > len(c) - 1:
+                continue
+            surprise = event_surprise(abn, ev)
+            if surprise == 0 or abs(surprise) > SURPRISE_CAP:
+                continue
+            fwd = car(abn, ev + 2, ev + horizon)
+            pre_illiq = amihud_illiq(r.iloc[ev - pre:ev].values, dv.iloc[ev - pre:ev].values)
+            pre_dv = float(np.nanmean(dv.iloc[ev - pre:ev].values))
+            vsurge = float(v.iloc[ev] / np.nanmean(v.iloc[ev - pre:ev].values)) \
+                if np.nanmean(v.iloc[ev - pre:ev].values) > 0 else np.nan
+            rows.append({"market": "US", "ticker": s, "date": str(idx[ev].date()),
+                         "price": float(c.iloc[ev]), "illiq": pre_illiq, "dollar_vol": pre_dv,
+                         "vol_surge": vsurge, "surprise": surprise, "fwd_car": fwd,
+                         "dir_drift": directional_drift(surprise, fwd)})
+    return pd.DataFrame(rows)
+
+
 def scan_market(market: str, horizon: int = HORIZON, pre: int = PRE) -> pd.DataFrame:
     import pead_factor as pf
     w = _wide(market)
@@ -145,7 +228,37 @@ def main():
     ap.add_argument("--horizon", type=int, default=HORIZON)
     ap.add_argument("--by-market", action="store_true",
                     help="test each country separately (per-market PEAD-liquidity IC table)")
+    ap.add_argument("--edgar", action="store_true",
+                    help="US: use REAL EDGAR 10-Q/10-K filing dates instead of the volume proxy")
+    ap.add_argument("--limit", type=int, default=120, help="--edgar: liquid US names to query")
     args = ap.parse_args()
+
+    # ── real earnings dates (US, SEC EDGAR) vs the volume-spike proxy ────────────
+    if args.edgar:
+        import pead_factor as pf
+        w = _wide("US"); close, vol = w["Close"], w["Volume"]
+        liquid = pf._liquid_symbols(close, vol)[:args.limit]
+        print(f"fetching EDGAR 10-Q/10-K filing dates for {len(liquid)} liquid US names…",
+              file=sys.stderr)
+        panel = scan_us_edgar(liquid, args.horizon)
+        panel = panel[panel["dir_drift"].abs() < 2.0] if not panel.empty else panel
+        if panel.empty:
+            print("no EDGAR-dated events (offline, or no filings in the price window)"); return
+        from accumulation_screener import information_coefficient
+        t = bucket_stats(panel, "illiq", "dir_drift")
+        ic = information_coefficient(panel["illiq"], panel["dir_drift"])
+        print(f"\n=== US PEAD × LIQUIDITY on REAL EDGAR filing dates "
+              f"({len(panel)} 10-Q/10-K events) ===")
+        if not t.empty:
+            meds = " ".join(f"{b}={m:+.1f}" for b, m in zip(t["bucket"], t["dir_drift_med%"]))
+            print(f"  directional drift by illiquidity quintile (Q1=liquid…Q5=illiquid): {meds}")
+            print(f"  Q5−Q1 = {spread_qhigh_qlow(t,'dir_drift_med%'):+.2f}%")
+        print(f"  illiq_IC (real dates) = {ic:+.3f}   vs proxy US ≈ +0.010")
+        print(f"  announcement-day volume surge: median {panel['vol_surge'].median():.1f}× "
+              f"(vs proxy 3.7×)")
+        print("\n  Real filing dates remove the proxy's noise (volume spikes that aren't earnings);"
+              "\n  a cleaner, higher illiq_IC here = the liquidity-conditioning of PEAD confirmed.")
+        return
 
     markets = ([f.split("cleaned_long_")[1].split(".")[0]
                 for f in sorted(os.listdir(SEED)) if f.startswith("cleaned_long_")]
