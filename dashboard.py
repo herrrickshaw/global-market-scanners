@@ -4,10 +4,10 @@ dashboard.py
 ------------
 Results dashboard (SAFe F8.2): a single self-contained HTML page that renders the
 key warehouse views — market coverage, the DVM classification distribution, the
-top GGG Strong Performers, and high-quality value names — so results are viewable
-without running anything. `render_html` is pure (takes DataFrames, returns an HTML
-string) and unit-tested; the CLI queries the DuckDB warehouse and writes
-dashboard.html.
+top GGG Strong Performers, high-quality value names, and the current
+accumulation/CMF screen — so results are viewable without running anything.
+`render_html` is pure (takes DataFrames, returns an HTML string) and unit-tested;
+the CLI queries the DuckDB warehouse and writes dashboard.html.
 
 Usage:
   python dashboard.py                       # -> dashboard.html
@@ -53,7 +53,24 @@ def render_html(sections: dict, generated: str | None = None) -> str:
     return "".join(parts)
 
 
-def _query_all() -> dict:
+def _accumulation_section(markets=None, top: int = 15) -> pd.DataFrame:
+    """Current top names by the accumulation/CMF signal (accumulation_screener) — the
+    validated multi-month accumulation screen, for the daily dashboard."""
+    import accumulation_screener as acc
+    if markets is None:
+        markets = [f.split("cleaned_long_")[1].split(".")[0]
+                   for f in sorted(os.listdir(acc.SEED)) if f.startswith("cleaned_long_")]
+    frames = [acc.current_screen(m) for m in markets]
+    frames = [f for f in frames if not f.empty]
+    if not frames:
+        return pd.DataFrame()
+    df = pd.concat(frames, ignore_index=True).dropna(subset=["accum"])
+    df = df.sort_values("accum", ascending=False).head(top)
+    df["cmf"] = df["cmf"].round(2); df["accum"] = df["accum"].round(2)
+    return df[["market", "ticker", "close", "cmf", "accum"]]
+
+
+def _query_all(accum_top: int = 15, include_accum: bool = True) -> dict:
     import duckdb
     import warehouse
     con = duckdb.connect(os.path.join(HERE, "market.duckdb"))
@@ -67,6 +84,14 @@ def _query_all() -> dict:
         sec["High ROE / low D-E"] = con.execute(warehouse.SHOWS["high_roe_low_de"]).df()
     finally:
         con.close()
+    if include_accum:
+        # isolated so a screener hiccup never breaks the rest of the dashboard
+        try:
+            sec["Accumulation / CMF screen (top by accumulation, validated 6m signal)"] = \
+                _accumulation_section(top=accum_top)
+        except Exception as e:                     # noqa: BLE001
+            print(f"  [dashboard] accumulation section skipped: {e}")
+            sec["Accumulation / CMF screen (top by accumulation, validated 6m signal)"] = pd.DataFrame()
     return sec
 
 
@@ -74,9 +99,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--open", action="store_true")
     ap.add_argument("--out", default=OUT)
+    ap.add_argument("--accum-top", type=int, default=15, help="rows in the accumulation section")
+    ap.add_argument("--no-accum", action="store_true", help="skip the accumulation screen section")
     args = ap.parse_args()
 
-    html = render_html(_query_all())
+    html = render_html(_query_all(accum_top=args.accum_top, include_accum=not args.no_accum))
     open(args.out, "w").write(html)
     print(f"wrote {args.out} ({len(html)//1024} KB)")
     if args.open:

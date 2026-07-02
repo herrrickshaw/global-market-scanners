@@ -791,6 +791,15 @@
       "size": 8,
       "name": "CMF/accumulation screener + point-in-time 1m/6m forward-return validation (quintiles, IC, monotonicity)",
       "module": "accumulation_screener.py"
+    },
+    {
+      "id": "F21.2",
+      "epic": "E21",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 2,
+      "name": "Accumulation/CMF screen section on the daily dashboard",
+      "module": "dashboard.py, accumulation_screener.py"
     }
   ],
   "kpis": [
@@ -832,7 +841,7 @@
     },
     {
       "metric": "Test suite",
-      "value": "78 unit tests, CI-gated (pytest + govern + integrity)"
+      "value": "79 unit tests, CI-gated (pytest + govern + integrity)"
     },
     {
       "metric": "External validation",

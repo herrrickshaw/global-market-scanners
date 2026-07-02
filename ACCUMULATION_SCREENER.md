@@ -55,3 +55,11 @@ Pure cores (`accumulation_signal`, `information_coefficient`, `quantile_returns`
 `monotonicity`) are covered by [`tests/`](tests/test_core.py) and enforced by CI. This
 complements [`darvas_volume.py`](darvas_volume.py) (which locates accumulation *within
 a box*) — here the accumulation signal is screened *and validated* on its own.
+
+## On the daily dashboard
+The current top names by the accumulation signal are rendered as a section of the
+daily [`dashboard.py`](dashboard.py) — "Accumulation / CMF screen (top by
+accumulation, validated 6m signal)" — so the screen shows up alongside market
+coverage, the DVM classification and the GGG performers without running anything.
+The section is isolated (a screener hiccup can't break the rest of the dashboard) and
+tunable via `python dashboard.py --accum-top N` (or `--no-accum` to omit it).

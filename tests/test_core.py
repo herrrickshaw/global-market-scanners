@@ -767,5 +767,18 @@ def test_quantile_returns_monotone():
     assert monotonicity(curve) == pytest.approx(1.0)
 
 
+# ── dashboard.py (accumulation section on the daily dashboard) ────────────────
+def test_dashboard_render_includes_accumulation_section():
+    import dashboard
+    accum = pd.DataFrame({"market": ["US"], "ticker": ["MEC"], "close": [37.0],
+                          "cmf": [0.39], "accum": [3.10]})
+    html = dashboard.render_html({"Market coverage": pd.DataFrame({"market": ["US"], "n": [1]}),
+                                  "Accumulation / CMF screen": accum})
+    assert "<h2>Accumulation / CMF screen</h2>" in html          # section rendered
+    assert "MEC" in html and "3.1" in html                       # its rows are in the table
+    # empty section renders a placeholder, not a crash
+    assert "no data" in dashboard.render_html({"Empty": pd.DataFrame()})
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
