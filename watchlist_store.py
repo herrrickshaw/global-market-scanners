@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """
-vcrud.py
---------
-A **versioned CRUD** store (vCRUD): Create / Read / Update / Delete over SQLite where
-every write is *versioned* and the log is *append-only* — nothing is ever mutated or
-physically removed, so you get a full audit trail and can read any past version. This
-mirrors the platform's own disposition principle ("nothing deleted, superseded via new
-versions") and its signed, immutable-forward git history.
+watchlist_store.py
+------------------
+An application-level **versioned CRUD** store for watchlists (and any record): Create /
+Read / Update / Delete over SQLite where every write is *versioned* and the log is
+*append-only* — nothing is ever mutated or physically removed, so you get a full audit
+trail and can read any past version.
+
+NB — this is NOT the platform's file-level **VCRUD** infrastructure (that's a separate
+git-backed file-versioning / compression / tiered-cache manager). This module is the
+row-level record store behind the watchlist REST endpoints in serve.py; both share the
+"versioned, append-only, soft-delete" idea, applied at different layers.
 
 Model: one append-only table; each operation inserts a new row.
   create  -> version 1
@@ -23,12 +27,12 @@ Pure functions operate on a sqlite3 connection (so tests run on an in-memory DB)
 CLI opens a file DB.
 
 Usage:
-  python vcrud.py create watchlist momentum --set tickers=NVDA,MSFT,AAPL
-  python vcrud.py update watchlist momentum --add tickers=TSLA --remove tickers=AAPL
-  python vcrud.py read   watchlist momentum
-  python vcrud.py history watchlist momentum
-  python vcrud.py delete watchlist momentum      # soft; restore brings it back
-  python vcrud.py list   watchlist
+  python watchlist_store.py create watchlist momentum --set tickers=NVDA,MSFT,AAPL
+  python watchlist_store.py update watchlist momentum --add tickers=TSLA --remove tickers=AAPL
+  python watchlist_store.py read   watchlist momentum
+  python watchlist_store.py history watchlist momentum
+  python watchlist_store.py delete watchlist momentum      # soft; restore brings it back
+  python watchlist_store.py list   watchlist
 """
 
 from __future__ import annotations
@@ -41,7 +45,7 @@ import sqlite3
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DB = os.path.join(HERE, "vcrud.db")
+DB = os.path.join(HERE, "watchlist_store.db")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS vcrud (

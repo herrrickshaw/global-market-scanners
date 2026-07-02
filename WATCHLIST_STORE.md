@@ -1,6 +1,8 @@
-# vCRUD — versioned CRUD store
+# Watchlist store — application-level versioned CRUD
 
-[`vcrud.py`](vcrud.py) is a **versioned CRUD** store: Create / Read / Update / Delete
+> Not to be confused with the platform's file-level **VCRUD** infrastructure (git-backed data-file versioning / compression / tiered cache). This is the row-level record store behind the watchlist REST endpoints.
+
+[`watchlist_store.py`](watchlist_store.py) is a **versioned CRUD** store: Create / Read / Update / Delete
 over SQLite where every write is *versioned* and the log is *append-only* — nothing is
 ever mutated in place or physically removed. You get a full **audit trail** and can read
 any past version. This mirrors the platform's own disposition principle ("nothing
@@ -25,14 +27,14 @@ Generic over an entity `type` + string `id` with a JSON `payload`. The demo enti
 
 ## Full lifecycle (CLI)
 ```bash
-python vcrud.py create  watchlist momentum --set tickers=NVDA,MSFT,AAPL note="momo"
-python vcrud.py update  watchlist momentum --add tickers=TSLA --remove tickers=AAPL
-python vcrud.py read    watchlist momentum          # -> {tickers:[NVDA,MSFT,TSLA], note:momo}
-python vcrud.py history watchlist momentum          # v1 create, v2/v3 update …
-python vcrud.py delete  watchlist momentum          # soft tombstone
-python vcrud.py restore watchlist momentum          # brings it back (new version)
-python vcrud.py version watchlist momentum --v 1    # time-travel: original tickers
-python vcrud.py list    watchlist
+python watchlist_store.py create  watchlist momentum --set tickers=NVDA,MSFT,AAPL note="momo"
+python watchlist_store.py update  watchlist momentum --add tickers=TSLA --remove tickers=AAPL
+python watchlist_store.py read    watchlist momentum          # -> {tickers:[NVDA,MSFT,TSLA], note:momo}
+python watchlist_store.py history watchlist momentum          # v1 create, v2/v3 update …
+python watchlist_store.py delete  watchlist momentum          # soft tombstone
+python watchlist_store.py restore watchlist momentum          # brings it back (new version)
+python watchlist_store.py version watchlist momentum --v 1    # time-travel: original tickers
+python watchlist_store.py list    watchlist
 ```
 
 ## REST surface (over the serving layer)
@@ -61,7 +63,7 @@ curl localhost:8000/watchlists/momentum/history
   the store is reusable outside the CLI/REST.
 - **Append-only** — no `UPDATE`/`DELETE` SQL is ever issued; the store is auditable and
   reproducible, matching the platform's governance.
-- `DELETE` journal mode (not WAL) per the platform's macOS-SQLite note; `vcrud.db` is
+- `DELETE` journal mode (not WAL) per the platform's macOS-SQLite note; `watchlist_store.db` is
   gitignored (user data, not source).
 
 Covered by [`tests/`](tests/test_core.py) — the full lifecycle (create → duplicate

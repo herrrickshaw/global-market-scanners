@@ -136,7 +136,7 @@ def create_app():
     from fastapi import Body
 
     def _vc():
-        import vcrud
+        import watchlist_store as vcrud
         return vcrud, vcrud.connect()
 
     @app.get("/watchlists")

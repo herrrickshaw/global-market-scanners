@@ -336,8 +336,8 @@
       "theme": "ST1",
       "pi": "PI-7",
       "status": "done",
-      "name": "Versioned CRUD store (vCRUD)",
-      "hypothesis": "An append-only, versioned CRUD store (create/read/update/delete/restore/history/time-travel) over SQLite gives the platform a user-managed WRITE surface (watchlists) with a full audit trail, consistent with its immutable-forward governance; exposed via CLI + REST in serve.py."
+      "name": "Watchlist store (versioned CRUD)",
+      "hypothesis": "An application-level append-only versioned CRUD store (create/read/update/delete/restore/history/time-travel) over SQLite gives the platform a user-managed WRITE surface (watchlists) via CLI + REST. (Distinct from the platform's file-level VCRUD infra.)"
     }
   ],
   "features": [
@@ -1013,8 +1013,8 @@
       "pi": "PI-7",
       "status": "done",
       "size": 5,
-      "name": "vcrud.py: append-only versioned CRUD (create/read/update/soft-delete/restore/history/read_version/list) + CLI",
-      "module": "vcrud.py"
+      "name": "watchlist_store.py: append-only versioned CRUD (create/read/update/soft-delete/restore/history/read_version/list) + CLI",
+      "module": "watchlist_store.py"
     },
     {
       "id": "F31.2",
@@ -1022,7 +1022,7 @@
       "pi": "PI-7",
       "status": "done",
       "size": 3,
-      "name": "Watchlist CRUD REST endpoints (POST/GET/PUT/DELETE + history) over vcrud",
+      "name": "Watchlist CRUD REST endpoints (POST/GET/PUT/DELETE + history) over watchlist_store",
       "module": "serve.py"
     }
   ],
@@ -1101,7 +1101,7 @@
     },
     {
       "metric": "Write surface",
-      "value": "versioned CRUD (vcrud.py): watchlists via CLI + REST, append-only with full version history + soft-delete/restore/time-travel"
+      "value": "versioned CRUD (watchlist_store.py): watchlists via CLI + REST, append-only with full history + soft-delete/restore/time-travel"
     }
   ]
 }

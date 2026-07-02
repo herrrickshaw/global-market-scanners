@@ -51,5 +51,5 @@ liquidity*.csv
 pead*.csv
 
 # vCRUD store (user data, not source)
-vcrud.db
-vcrud.db-journal
+watchlist_store.db
+watchlist_store.db-journal

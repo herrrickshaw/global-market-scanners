@@ -966,7 +966,7 @@ def test_marketdata_delegation_preserves_module_helpers():
 
 # ── vcrud.py (versioned CRUD store) ───────────────────────────────────────────
 def test_vcrud_create_read_and_duplicate():
-    import vcrud
+    import watchlist_store as vcrud
     con = vcrud.connect(":memory:")
     vcrud.create(con, "watchlist", "wl1", {"tickers": ["NVDA", "MSFT"]})
     assert vcrud.read(con, "watchlist", "wl1") == {"tickers": ["NVDA", "MSFT"]}
@@ -975,7 +975,7 @@ def test_vcrud_create_read_and_duplicate():
 
 
 def test_vcrud_update_versions_and_history():
-    import vcrud
+    import watchlist_store as vcrud
     con = vcrud.connect(":memory:")
     vcrud.create(con, "wl", "a", {"tickers": ["A"], "note": "x"})
     vcrud.update(con, "wl", "a", {"note": "y"})                   # merge: keeps tickers, changes note
@@ -986,7 +986,7 @@ def test_vcrud_update_versions_and_history():
 
 
 def test_vcrud_soft_delete_restore_and_list():
-    import vcrud
+    import watchlist_store as vcrud
     con = vcrud.connect(":memory:")
     vcrud.create(con, "wl", "a", {"tickers": ["A"]})
     vcrud.create(con, "wl", "b", {"tickers": ["B"]})
@@ -1000,7 +1000,7 @@ def test_vcrud_soft_delete_restore_and_list():
 
 
 def test_vcrud_list_field_helpers():
-    import vcrud
+    import watchlist_store as vcrud
     con = vcrud.connect(":memory:")
     vcrud.create(con, "wl", "a", {"tickers": ["A", "B"]})
     vcrud.add_to_list(con, "wl", "a", "tickers", ["B", "C"])     # B already present -> union
