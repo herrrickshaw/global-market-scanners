@@ -155,12 +155,31 @@ def cached_download(tickers, years: int = 5, refresh_days: int = 3) -> dict:
     need_start = date.today() - timedelta(days=int(years * 365) - 30)
 
     s = _connect()
+    stale = []                    # cached with enough history but missing recent days
     for t in tickers:
         cov = coverage(t) if s else None
         if cov and cov[0] <= need_start and cov[1] >= fresh_cut:
-            out[t] = get_ohlc(t)
+            out[t] = get_ohlc(t)                       # fresh — serve from cache
+        elif cov and cov[0] <= need_start:
+            stale.append((t, cov[1]))                  # incremental: only fetch cov[1]..today
         else:
-            misses.append(t)
+            misses.append(t)                           # not cached / too little history — full pull
+
+    # ── incremental delta fetch (only the new bars since last cached date) ──
+    if stale:
+        print(f"  [market_store] {len(stale)} stale -> fetching only new bars since last cache…",
+              file=sys.stderr, flush=True)
+        for t, last in stale:
+            try:
+                new = yf.download(t, start=str(last + timedelta(days=1)), auto_adjust=True,
+                                  progress=False)
+                if new is not None and not new.empty:
+                    if isinstance(new.columns, pd.MultiIndex):
+                        new = new.xs(t, axis=1, level=1) if t in new.columns.get_level_values(1) else new
+                    put_ohlc(t, new.dropna(how="all"))   # upsert (PK = ticker,d) — idempotent
+            except Exception:
+                pass
+            out[t] = get_ohlc(t)
 
     if misses:
         print(f"  [market_store] {len(out)} from Cassandra, downloading {len(misses)} misses…",
@@ -178,7 +197,7 @@ def cached_download(tickers, years: int = 5, refresh_days: int = 3) -> dict:
                         put_ohlc(t, df)
                 except Exception:
                     continue
-    else:
+    elif not stale:
         print(f"  [market_store] all {len(out)} tickers served from Cassandra (no network)",
               file=sys.stderr, flush=True)
     return out

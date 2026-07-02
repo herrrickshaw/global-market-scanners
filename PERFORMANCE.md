@@ -49,15 +49,16 @@ so tickers with recent gaps are correctly excluded (~2% fewer screen hits — ar
 **Further ⬜:** `dvm_composite` (~731 tickers) still loops but is small/fast (~3 s); same
 vectorisation applies if it grows.
 
-## 3. ML walk-forward retraining 🔶
+## 3. ML walk-forward retraining ✅
 `pit_backtest`, `ml_viability`, `screen_viability --include-ml` refit a model **per
 test-day per stock** — O(stocks × days × fit). The heaviest CPU path.
 
-**Fixes**
-- **Subsample test days** (`--step`, ✅) — weekly instead of daily cuts fits 5×.
-- **ProcessPoolExecutor** across tickers (CPU-bound; threads don't help under the GIL).
-- **Cache the feature matrix** per ticker (recomputed today each fit) and warm-start /
-  reuse the scaler; consider a single pooled cross-sectional model vs per-stock refits.
+**Fixed:** `ml_viability` now evaluates tickers in **parallel across cores**
+(`--workers`, `ProcessPoolExecutor`), plus **test-day subsampling** (`--step`, weekly).
+Speedup scales with universe size — modest on tiny samples (12 tickers: 16.1 s → 12.0 s,
+process-overhead-bound), approaching ~Ncores× on full universes.
+**Further ⬜:** cache the per-ticker feature matrix (recomputed each fit); consider one
+pooled cross-sectional model instead of per-stock refits.
 
 ## 4. Cassandra point-reads for bulk analytics 🔶
 Great for operational lookups/CDC, but thousands of per-partition reads are slower than
@@ -72,20 +73,23 @@ Thousands of `companyfacts` fetches (~27 GB transient).
 **Fixed:** prune-on-fetch to a compact SQLite (`edgar_facts.db`, 27 GB → ~190 MB),
 resumable, negative-cached misses.
 
-## 6. No incrementality — full recompute every run ⬜
-Each run reprocesses the whole universe/history.
-**Fixes** — incremental updates (append only new bars via CDC / the holiday calendar so
-non-trading days are skipped ✅ `market_holidays`); materialise results in DuckDB and
-refresh only changed partitions.
+## 6. No incrementality — full recompute every run ✅ (data layer)
+Each run reprocessed the whole universe/history.
+**Fixed (data layer):** `market_store.cached_download` now does **incremental delta
+fetches** — a cached-but-stale ticker pulls only the bars since its last cached date
+(yfinance `start=last+1`) and upserts them (PK `(ticker,d)`, idempotent), instead of
+re-downloading 5 years. With `market_holidays` skipping non-trading days ✅, daily updates
+are cheap. **Further ⬜:** materialise results in DuckDB and refresh only changed partitions.
 
 ---
 
 ## Priority order (impact × effort)
-1. ✅ **Route `ml_viability` / `screen_viability` through `cached_download`** — done (no more re-downloads).
-2. ✅ **Vectorise + parallelise `dvm_global`** — done, 105 s → 8.1 s (13×).
-3. ⬜ **Subsample + multiprocess the ML walk-forward** — the remaining compute-heavy path.
-4. ⬜ **Incremental updates** (CDC + trading-day deltas) — biggest long-run saving.
+1. ✅ **Route `ml_viability` / `screen_viability` through `cached_download`** — no more re-downloads.
+2. ✅ **Vectorise + parallelise `dvm_global`** — 105 s → 8.1 s (13×).
+3. ✅ **Subsample + multiprocess the ML walk-forward** — parallel across cores.
+4. ✅ **Incremental delta fetches** (only new bars) — done in the data layer.
+5. ⬜ Remaining: DuckDB-materialised results refreshed by changed partition only.
 
-Already banked: local-parquet bulk reads, Cassandra cache (now used by all data
-scripts), vectorised+parallel `dvm_global`, EDGAR pruning, holiday-day skipping,
-DuckDB analytical layer.
+Already banked: local-parquet bulk reads, Cassandra cache with incremental updates
+(all data scripts), vectorised+parallel `dvm_global`, parallel ML walk-forward,
+EDGAR pruning, holiday-day skipping, DuckDB analytical layer.

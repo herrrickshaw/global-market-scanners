@@ -28,6 +28,7 @@ Usage:
 """
 
 import argparse
+import os
 import sys
 import warnings
 from datetime import datetime, timezone
@@ -71,45 +72,50 @@ def download_ohlc(tickers, years):
 MIN_NEEDED = LOOKBACK + TRAIN_WINDOW + PREDICT_DAYS + 250  # ~ enough for a few yrs of test pts
 
 
-def evaluate_market(name, ohlc, engine, step):
-    """Walk-forward ML eval + screen viability for one market. Returns a dict row."""
-    n_correct = n_total = 0
-    actuals, preds = [], []
-    bull_rets, all_rets = [], []
-    bull_hits = bull_n = 0
-
-    for sym, df in ohlc.items():
-        try:
-            feats = compute_features(df)
-            close = df["Close"].astype(float).reindex(feats.index)
-            target = close.pct_change(PREDICT_DAYS).shift(-PREDICT_DAYS) * 100
-            aligned = feats.join(target.rename("t"), how="inner").dropna()
-            if len(aligned) < TRAIN_WINDOW + LOOKBACK + 30:
+def _eval_ticker_wf(args):
+    """Walk-forward eval for ONE ticker (runs in a worker process). Returns partial stats."""
+    df, step, model_type = args
+    eng = MLSignalEngine(model_type=model_type)
+    nc = nt = bh = bn = 0
+    act, pred, bull, allr = [], [], [], []
+    try:
+        feats = compute_features(df)
+        close = df["Close"].astype(float).reindex(feats.index)
+        target = close.pct_change(PREDICT_DAYS).shift(-PREDICT_DAYS) * 100
+        aligned = feats.join(target.rename("t"), how="inner").dropna()
+        if len(aligned) < TRAIN_WINDOW + LOOKBACK + 30:
+            return (0, 0, [], [], [], [], 0, 0)
+        fdf, tser = aligned[FEATURE_NAMES], aligned["t"]
+        for ti in range(TRAIN_WINDOW + LOOKBACK, len(aligned) - PREDICT_DAYS, step):
+            X, y = eng._make_sequences(fdf.iloc[ti - TRAIN_WINDOW:ti], tser.iloc[ti - TRAIN_WINDOW:ti])
+            if len(X) < 20:
                 continue
-            fdf, tser = aligned[FEATURE_NAMES], aligned["t"]
-            start = TRAIN_WINDOW + LOOKBACK
-            for ti in range(start, len(aligned) - PREDICT_DAYS, step):
-                tr_f = fdf.iloc[ti - TRAIN_WINDOW:ti]
-                tr_t = tser.iloc[ti - TRAIN_WINDOW:ti]
-                X, y = engine._make_sequences(tr_f, tr_t)
-                if len(X) < 20:
-                    continue
-                model = engine._make_model()
-                model.fit(X, y)
-                win = fdf.iloc[ti - LOOKBACK:ti].values
-                z = z_score_normalise(win).flatten().reshape(1, -1)
-                pred = float(model.predict(z)[0])
-                act = float(tser.iloc[ti])
-                actuals.append(act); preds.append(pred); all_rets.append(act)
-                if (pred > 0 and act > 0) or (pred < 0 and act < 0):
-                    n_correct += 1
-                n_total += 1
-                if pred >= BULLISH_THRESHOLD:
-                    bull_rets.append(act); bull_n += 1
-                    if act > 0:
-                        bull_hits += 1
-        except Exception:
-            continue
+            m = eng._make_model(); m.fit(X, y)
+            z = z_score_normalise(fdf.iloc[ti - LOOKBACK:ti].values).flatten().reshape(1, -1)
+            p = float(m.predict(z)[0]); a = float(tser.iloc[ti])
+            act.append(a); pred.append(p); allr.append(a)
+            if (p > 0 and a > 0) or (p < 0 and a < 0):
+                nc += 1
+            nt += 1
+            if p >= BULLISH_THRESHOLD:
+                bull.append(a); bn += 1
+                if a > 0:
+                    bh += 1
+    except Exception:
+        pass
+    return (nc, nt, act, pred, bull, allr, bh, bn)
+
+
+def evaluate_market(name, ohlc, engine, step, workers=None):
+    """Walk-forward ML eval for one market — tickers evaluated in parallel across cores."""
+    from concurrent.futures import ProcessPoolExecutor
+    n_correct = n_total = bull_hits = bull_n = 0
+    actuals, preds, bull_rets, all_rets = [], [], [], []
+    tasks = [(df, step, engine.model_type) for df in ohlc.values()]
+    with ProcessPoolExecutor(max_workers=workers) as ex:
+        for nc, nt, act, pr, bl, ar, bh, bn in ex.map(_eval_ticker_wf, tasks):
+            n_correct += nc; n_total += nt; bull_hits += bh; bull_n += bn
+            actuals += act; preds += pr; bull_rets += bl; all_rets += ar
 
     if n_total == 0:
         return {"Market": name, "n_stocks": len(ohlc), "n_preds": 0, "VIABLE": "n/a"}
@@ -139,6 +145,7 @@ def main():
     ap.add_argument("--top", type=int, default=None, help="first N tickers per market")
     ap.add_argument("--markets", nargs="*", default=list(MARKET_UNIVERSES))
     ap.add_argument("--model", default="ridge", choices=["ridge", "lr"])
+    ap.add_argument("--workers", type=int, default=os.cpu_count(), help="parallel ticker workers")
     ap.add_argument("--out", default="ml_viability_5y.xlsx")
     args = ap.parse_args()
 
@@ -154,7 +161,7 @@ def main():
         ohlc = download_ohlc(tickers, args.years)
         print(f"[{mkt}] {len(ohlc)} usable; running walk-forward ML eval (step={args.step})…",
               file=sys.stderr, flush=True)
-        row = evaluate_market(mkt, ohlc, engine, args.step)
+        row = evaluate_market(mkt, ohlc, engine, args.step, args.workers)
         rows.append(row)
         print(f"[{mkt}] -> {row}", file=sys.stderr, flush=True)
 
