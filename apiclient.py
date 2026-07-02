@@ -39,6 +39,7 @@ LIMITS = {                       # source -> (min_interval_s, max_concurrency)
     "crossref":  (0.20, 3),          # polite pool
     "arxiv":     (3.00, 1),          # arXiv asks for <= 1 request / 3s
     "semanticscholar": (1.10, 1),    # ~1 req/s unauthenticated
+    "kenfrench": (0.50, 2),          # Dartmouth static factor files
 }
 _DEFAULT = (0.50, 3)
 YF_CHUNK = 50                    # tickers per yfinance batch (small enough to avoid crumb storms)

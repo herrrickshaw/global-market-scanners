@@ -540,5 +540,48 @@ def test_every_platform_market_has_currency_and_public_benchmark():
         assert "ken_french" in d["public_factor_sources"]     # Ken French covers every region
 
 
+# ── benchmark.py (real Ken French factors + alpha regression) ─────────────────
+def test_parse_ff_csv_dates_scaling_and_missing():
+    from benchmark import parse_ff_csv
+    text = ("This file was created by ...\n"
+            "\n"
+            ",Mkt-RF,SMB,HML,RMW,CMA,RF\n"
+            "20240102,    1.00,    0.50,   -0.20,    0.10,    0.05,    0.02\n"
+            "20240103,   -0.50,   -0.25,    0.30,  -99.99,    0.00,    0.02\n"
+            "\n"
+            "  Annual Factors: January-December\n"
+            "2024,   10.0,    5.0,   -2.0,    1.0,    0.5,    0.2\n")
+    df = parse_ff_csv(text)
+    assert list(df.columns) == ["Mkt-RF", "SMB", "HML", "RMW", "CMA", "RF"]
+    assert len(df) == 2                                        # annual block excluded
+    assert df["Mkt-RF"].iloc[0] == pytest.approx(0.01)        # percent -> decimal
+    assert np.isnan(df["RMW"].iloc[1])                        # -99.99 -> NaN
+    assert str(df.index[0].date()) == "2024-01-02"
+
+
+def test_carhart_alpha_recovers_loadings_and_alpha():
+    from benchmark import carhart_alpha
+    rng = np.random.default_rng(11)
+    n = 300
+    idx = pd.date_range("2023-01-02", periods=n, freq="B")
+    fac = pd.DataFrame({
+        "Mkt-RF": rng.normal(0, 0.01, n), "SMB": rng.normal(0, 0.005, n),
+        "HML": rng.normal(0, 0.005, n), "Mom": rng.normal(0, 0.006, n)}, index=idx)
+    port = 0.0003 + 1.2 * fac["Mkt-RF"] - 0.5 * fac["HML"] + rng.normal(0, 0.001, n)
+    res = carhart_alpha(port, fac)
+    assert res["loadings"]["Mkt-RF"][0] == pytest.approx(1.2, abs=0.1)
+    assert res["loadings"]["HML"][0] == pytest.approx(-0.5, abs=0.1)
+    assert res["alpha_daily"] == pytest.approx(0.0003, abs=1e-4)
+    assert res["alpha_reliable"] is False                     # n=300 < 400 -> flagged unreliable
+
+
+def test_factor_premia_annualises():
+    from benchmark import factor_premia
+    idx = pd.date_range("2023-01-02", periods=252, freq="B")
+    fac = pd.DataFrame({"Mkt-RF": np.full(252, 0.0004)}, index=idx)   # +0.04%/day
+    prem = factor_premia(fac)
+    assert prem.loc[0, "ann_mean%"] == pytest.approx(0.0004 * 252 * 100, abs=0.5)
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

@@ -40,3 +40,4 @@ portfolio_*.json
 alert_*.json
 LITERATURE_SCOUT.md
 LITERATURE_SCOUT.json
+benchmark_cache/
