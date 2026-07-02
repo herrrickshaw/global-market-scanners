@@ -780,5 +780,52 @@ def test_dashboard_render_includes_accumulation_section():
     assert "no data" in dashboard.render_html({"Empty": pd.DataFrame()})
 
 
+# ── corporate_actions.py (split & rights-issue screeners) ─────────────────────
+def test_nearest_split_ratio_and_label():
+    from corporate_actions import nearest_split_ratio, label_ratio
+    assert nearest_split_ratio(0.5)[0] == "2:1"               # forward 2:1
+    assert nearest_split_ratio(1 / 3)[0] == "3:1"
+    assert nearest_split_ratio(2.0)[0] == "1:2"               # reverse
+    assert nearest_split_ratio(0.91) is None                  # ordinary move, no split
+    assert label_ratio(10.0) == "10:1" and label_ratio(0.5) == "1:2"
+
+
+def test_detect_splits_flags_clean_split_not_glitch():
+    from corporate_actions import detect_splits
+    flat = [100.0] * 21
+    split = detect_splits(flat + [50, 50, 50, 50], [100] * 21 + [300, 100, 100, 100])
+    assert len(split) == 1 and split[0]["ratio"] == "2:1"     # clean 2:1 on volume, persists
+    glitch = detect_splits(flat + [0.5, 0.5], [100] * 21 + [300, 100])   # drop to ~0
+    assert glitch == []                                       # glitch guarded out
+    normal = detect_splits(flat + [90, 90], [100] * 21 + [300, 100])     # −10%, not a ratio
+    assert normal == []
+
+
+def test_detect_rights_idiosyncratic_persistent_only():
+    from corporate_actions import detect_rights
+    flat = [100.0] * 21
+    px = flat + [75, 75, 75, 75]                              # −25%, settles at diluted level
+    vol = [100] * 21 + [300, 100, 100, 100]
+    mkt_flat = [0.0] * 25
+    assert len(detect_rights(px, vol, mkt_flat)) == 1         # idiosyncratic + stabilises -> flagged
+    mkt_down = [0.0] * 21 + [-0.25, 0, 0, 0]                  # whole market fell too
+    assert detect_rights(px, vol, mkt_down) == []             # not idiosyncratic
+    crash = flat + [75, 55, 40, 30]                           # keeps cratering
+    assert detect_rights(crash, vol, mkt_flat) == []          # fails stabilisation
+
+
+def test_parse_edgar_hits_extracts_ticker_and_form():
+    from corporate_actions import parse_edgar_hits
+    payload = {"hits": {"hits": [
+        {"_source": {"display_names": ["STURM RUGER & CO INC  (RGR)  (CIK 0000095029)"],
+                     "file_date": "2026-03-04", "root_forms": ["8-K"]}},
+        {"_source": {"display_names": ["Dole plc  (DOLE, DOLE2)  (CIK 0001857518)"],
+                     "file_date": "2026-04-07", "form_type": "8-K"}}]}}
+    rows = parse_edgar_hits(payload, "rights issue")
+    assert rows[0]["ticker"] == "RGR" and rows[0]["company"] == "STURM RUGER & CO INC"
+    assert rows[0]["date"] == "2026-03-04" and rows[0]["form"] == "8-K"
+    assert rows[0]["event"] == "rights issue" and rows[1]["ticker"] == "DOLE"
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

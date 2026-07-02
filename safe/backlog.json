@@ -258,6 +258,14 @@
       "status": "done",
       "name": "Accumulation/CMF screener + validation",
       "hypothesis": "An accumulation + Chaikin Money Flow screen, validated point-in-time against 1-month and 6-month forward returns, is a weak short-horizon but monotone multi-month signal (6m Q5-Q1 +8% to +11%, IC ~0.07)."
+    },
+    {
+      "id": "E22",
+      "theme": "ST1",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "Corporate-action screeners",
+      "hypothesis": "A stock-split screener (yfinance-authoritative, since splits are adjusted out of price) and a rights-issue/dilution-event screener (idiosyncratic persistent ex-rights-band gap-downs, honestly labelled as candidates) surface corporate actions across the liquid universe."
     }
   ],
   "features": [
@@ -800,6 +808,33 @@
       "size": 2,
       "name": "Accumulation/CMF screen section on the daily dashboard",
       "module": "dashboard.py, accumulation_screener.py"
+    },
+    {
+      "id": "F22.1",
+      "epic": "E22",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "Stock-split screener: yfinance .splits authoritative + offline price-gap heuristic",
+      "module": "corporate_actions.py"
+    },
+    {
+      "id": "F22.2",
+      "epic": "E22",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 3,
+      "name": "Rights-issue/dilution candidate screener (idiosyncratic persistent ex-rights-band drops)",
+      "module": "corporate_actions.py"
+    },
+    {
+      "id": "F22.3",
+      "epic": "E22",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "Corporate actions from public announcements: SEC EDGAR 8-K full-text search (splits + rights issues)",
+      "module": "corporate_actions.py"
     }
   ],
   "kpis": [
@@ -841,7 +876,7 @@
     },
     {
       "metric": "Test suite",
-      "value": "79 unit tests, CI-gated (pytest + govern + integrity)"
+      "value": "83 unit tests, CI-gated (pytest + govern + integrity)"
     },
     {
       "metric": "External validation",

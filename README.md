@@ -33,6 +33,7 @@ across 19 markets, and a Cassandra/Kafka/Flink data backbone.
 | **Darvas × volume** | `darvas_volume.py` | Darvas-box monitor for volume acquisition (OBV/CMF/up-down vol) + HFT footprint; coils & breakouts |
 | **Watchlists** | `watchlists.py` | Two separate ranked lists — fundamentally strong (QMJ) and being accumulated (Darvas volume) — + intersection |
 | **Accumulation screener** | `accumulation_screener.py` | CMF + accumulation screen, validated vs 1m/6m forward returns (6m Q5−Q1 +10.8%, monotone) |
+| **Corporate actions** | `corporate_actions.py` | Stock-split screener (yfinance-authoritative) + rights-issue/dilution candidate screener |
 | **ML screen discovery** | `ml_screen_discovery.py` | Supervised → Unsupervised (new screens) → RL-from-screeners |
 | **DVM / Trendlyne** | `dvm_engine.py`, `dvm_global.py`, `fundamentals_global.py`, `dvm_composite.py` | Durability/Valuation/Momentum scoring + GGG classification across 19 markets |
 | **Decision layer** | `portfolio.py`, `risk.py`, `meta_screen.py`, `sector_rotation.py`, `alerts.py`, `unlisted_valuation.py` | Signals → constrained portfolios, risk/VaR, ensemble conviction, sector rotation, alerts, private-firm comps |
@@ -119,6 +120,7 @@ classification → fundamentals on breakout candidates → styled Excel export**
 - [Darvas × volume](DARVAS_VOLUME.md) — Darvas-box monitor for stealth volume acquisition + HFT footprint (coils & volume-confirmed breakouts)
 - [Watchlists](WATCHLISTS.md) — separate fundamentally-strong & being-accumulated lists (+ intersection)
 - [Accumulation screener](ACCUMULATION_SCREENER.md) — CMF/accumulation screen validated against 1-month & 6-month forward returns
+- [Corporate actions](CORPORATE_ACTIONS.md) — stock-split (yfinance) & rights-issue/dilution candidate screeners
 
 **Decision layer & consumption**
 - [Decision layer, global rigor & observability](DECISION_LAYER.md) — portfolio / risk / meta-screen / rotation / alerts / comps + global PIT + FX + data quality + serving
