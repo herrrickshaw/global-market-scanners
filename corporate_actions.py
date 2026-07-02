@@ -136,9 +136,7 @@ def detect_rights(close, volume, market_ret, dates=None) -> list:
 
 
 # ── data assembly (offline) ───────────────────────────────────────────────────
-def _wide(market: str):
-    import marketdata
-    return marketdata.close_volume(market)
+from marketdata import close_volume as _wide
 
 
 def scan_splits(market: str) -> pd.DataFrame:

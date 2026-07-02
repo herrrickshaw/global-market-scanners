@@ -123,12 +123,8 @@ def drift_by_surprise(events: pd.DataFrame, q: int = 5) -> pd.DataFrame:
 def monotonicity(curve: pd.DataFrame) -> float:
     """Spearman-style monotonicity of the PEAD curve (+1 = perfectly increasing =
     strong PEAD). Summarises whether higher surprise ⇒ higher forward drift."""
-    if curve.empty or len(curve) < 3:
-        return np.nan
-    means = curve["mean%"].values
-    ranks = pd.Series(means).rank().values
-    ideal = np.arange(1, len(means) + 1)
-    return float(np.corrcoef(ranks, ideal)[0, 1])
+    import marketdata
+    return marketdata.monotonicity(curve, "mean%")
 
 
 # ── data assembly (offline, prices) ───────────────────────────────────────────

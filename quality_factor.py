@@ -150,9 +150,7 @@ def lq_combo(leg_returns: dict) -> float:
 
 
 # ── safety inputs from OHLC (beta, vol) ───────────────────────────────────────
-def _clean(t):
-    from marketdata import clean_key
-    return clean_key(t)
+from marketdata import clean_key as _clean
 
 
 def price_risk(market: str) -> pd.DataFrame:

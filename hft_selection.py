@@ -134,9 +134,7 @@ def ou_half_life(close) -> float:
 
 
 # ── archetype scoring (cross-sectional) ───────────────────────────────────────
-def _z(s: pd.Series) -> pd.Series:
-    from marketdata import zscore
-    return zscore(s)
+from marketdata import zscore as _z
 
 
 def archetype_scores(feat: pd.DataFrame) -> pd.DataFrame:

@@ -107,18 +107,12 @@ def premium_by_illiq(panel: pd.DataFrame, q: int = 5) -> pd.DataFrame:
 
 def monotonicity(curve: pd.DataFrame, col: str = "mean_fwd%") -> float:
     """+1 = forward return rises perfectly from Q1→Q5 (a clean liquidity premium)."""
-    if curve.empty or len(curve) < 3:
-        return np.nan
-    ranks = pd.Series(curve[col].values).rank().values
-    ideal = np.arange(1, len(curve) + 1)
-    return float(np.corrcoef(ranks, ideal)[0, 1])
+    import marketdata
+    return marketdata.monotonicity(curve, col)
 
 
 # ── data assembly (offline, prices) ───────────────────────────────────────────
-def _market_wide(market: str):
-    """(close, volume) wide frames — delegates to the shared marketdata loader."""
-    import marketdata
-    return marketdata.close_volume(market)
+from marketdata import close_volume as _market_wide
 
 
 def scan_market(market: str, lookback: int = DEFAULT_LOOKBACK, horizon: int = DEFAULT_HORIZON) -> tuple:

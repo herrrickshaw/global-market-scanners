@@ -60,9 +60,7 @@ def peer_signal(peer_lagged_return: float) -> float:
 
 
 # ── data assembly (offline, point-in-time) ────────────────────────────────────
-def _clean(t):
-    from marketdata import clean_key
-    return clean_key(t)
+from marketdata import clean_key as _clean
 
 
 def build_panel(market: str, lag: int = LAG, horizon: int = HORIZON) -> pd.DataFrame:

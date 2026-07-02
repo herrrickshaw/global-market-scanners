@@ -64,15 +64,7 @@ def accumulation_signal(high, low, close, volume) -> dict:
     return {"cmf": cmf, "accum": accum}
 
 
-def information_coefficient(signal, fwd_ret) -> float:
-    """Pearson correlation between the signal and the forward return (the IC).
-    Positive = the signal predicts higher returns."""
-    s = pd.to_numeric(pd.Series(list(signal)), errors="coerce")
-    r = pd.to_numeric(pd.Series(list(fwd_ret)), errors="coerce")
-    j = pd.concat([s, r], axis=1).dropna()
-    if len(j) < 10 or j.iloc[:, 0].std() == 0 or j.iloc[:, 1].std() == 0:
-        return np.nan
-    return float(j.iloc[:, 0].corr(j.iloc[:, 1]))
+from marketdata import information_coefficient  # signal↔forward-return IC (re-exported)
 
 
 def quantile_returns(panel: pd.DataFrame, signal_col: str, q: int = 5,
@@ -90,17 +82,12 @@ def quantile_returns(panel: pd.DataFrame, signal_col: str, q: int = 5,
 
 
 def monotonicity(curve: pd.DataFrame, col: str = "median_fwd%") -> float:
-    if curve.empty or len(curve) < 3:
-        return np.nan
-    ranks = pd.Series(curve[col].values).rank().values
-    ideal = np.arange(1, len(curve) + 1)
-    return float(np.corrcoef(ranks, ideal)[0, 1])
+    import marketdata
+    return marketdata.monotonicity(curve, col)
 
 
 # ── data assembly (offline, point-in-time) ────────────────────────────────────
-def _wide(market: str):
-    import marketdata
-    return marketdata.wide(market)
+from marketdata import wide as _wide
 
 
 def build_panel(market: str, horizon: int, sig_window: int = SIG_WINDOW) -> pd.DataFrame:

@@ -89,13 +89,7 @@ def up_down_volume_ratio(close, volume) -> float:
     return float(up / dn) if dn > 0 else (np.inf if up > 0 else np.nan)
 
 
-def trend_corr(x) -> float:
-    """Scale-free trend: correlation of the series with time ∈ [−1,1] (rising = +)."""
-    a = np.asarray(x, dtype=float)
-    a = a[np.isfinite(a)]
-    if len(a) < 3 or np.std(a) == 0:
-        return np.nan
-    return float(np.corrcoef(a, np.arange(len(a)))[0, 1])
+from marketdata import trend_corr  # scale-free trend (re-exported)
 
 
 # ── Darvas box (pure) ─────────────────────────────────────────────────────────
@@ -148,9 +142,7 @@ def accumulation_features(high, low, close, volume) -> dict:
     }
 
 
-def _z(s: pd.Series) -> pd.Series:
-    from marketdata import zscore
-    return zscore(s)
+from marketdata import zscore as _z
 
 
 def accumulation_score(feat: pd.DataFrame) -> pd.Series:

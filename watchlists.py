@@ -49,10 +49,7 @@ MIN_ACCUM = 0.5           # accumulation-score floor for "being accumulated"
 
 
 # ── pure filter / merge core ──────────────────────────────────────────────────
-def clean_key(t) -> str:
-    """Cross-source join key: bare, upper-cased symbol (drops the .NS/.T suffix)."""
-    from marketdata import clean_key as _ck
-    return _ck(t)
+from marketdata import clean_key  # cross-source join key (re-exported)
 
 
 def strong_from_scores(scored: pd.DataFrame, min_quality: float = MIN_QUALITY) -> pd.DataFrame:
