@@ -509,5 +509,36 @@ def test_liquidity_premium_quantile_monotone():
     assert monotonicity(curve) == pytest.approx(1.0)
 
 
+# ── data_sources.py (per-market public factor-source registry) ────────────────
+def test_paper_sources_match_the_iima_paper():
+    from data_sources import paper_sources
+    p = paper_sources()
+    assert "CMIE Prowess" in p["returns_and_fundamentals"]["name"]
+    assert p["returns_and_fundamentals"]["license"].startswith("COMMERCIAL")   # not public
+    assert "IFFM" in p["factor_benchmark"]["name"] or "Fama-French-Momentum" in p["factor_benchmark"]["name"]
+    assert p["factor_benchmark"]["license"] == "public/free"                    # the public one
+    assert "iima.ac.in" in p["factor_benchmark"]["url"]
+
+
+def test_for_market_mappings():
+    from data_sources import for_market
+    us = for_market("US")
+    assert us["ken_french_region"] == "North America" and us["aqr_country_qmj"] is True
+    assert "edgar" in us["raw_sources"]                       # US has point-in-time EDGAR
+    ind = for_market("IN")
+    assert ind["currency"] == "INR" and "iffm" in ind["public_factor_sources"]  # paper's library
+    cn = for_market("CN")
+    assert cn["ken_french_region"] == "Emerging" and cn["aqr_country_qmj"] is False
+
+
+def test_every_platform_market_has_currency_and_public_benchmark():
+    from data_sources import PLATFORM_MARKETS, for_market
+    for m in PLATFORM_MARKETS:
+        d = for_market(m)
+        assert d["currency"], m
+        assert len(d["public_factor_sources"]) >= 1           # always a public benchmark
+        assert "ken_french" in d["public_factor_sources"]     # Ken French covers every region
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

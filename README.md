@@ -108,6 +108,7 @@ classification → fundamentals on breakout candidates → styled Excel export**
 - [Literature scout](SCOUT.md) — automated global research scout (OpenAlex/Crossref/arXiv) with research-gap detection
 - [PEAD factor](PEAD.md) — post-earnings-announcement drift; the scout→implement→covered loop closed
 - [Liquidity factor](LIQUIDITY.md) — Amihud illiquidity + liquidity premium; scout gap #2 closed
+- [Data sources](DATA_SOURCES.md) — per-market public factor libraries (AQR/Ken French/IIMA IFFM); what the quality paper names
 
 **Decision layer & consumption**
 - [Decision layer, global rigor & observability](DECISION_LAYER.md) — portfolio / risk / meta-screen / rotation / alerts / comps + global PIT + FX + data quality + serving
