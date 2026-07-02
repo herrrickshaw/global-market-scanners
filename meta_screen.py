@@ -37,7 +37,8 @@ import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-DEFAULT_WEIGHTS = {"durability": 0.30, "valuation": 0.20, "momentum": 0.25, "ml_signal": 0.25}
+DEFAULT_WEIGHTS = {"durability": 0.25, "valuation": 0.15, "momentum": 0.20,
+                   "ml_signal": 0.20, "quality": 0.20}   # quality = AFP/QMJ score
 GATE_BONUS = 10.0          # points added for clearing a hard gate (capped at 100)
 
 
@@ -73,13 +74,15 @@ def rank(df: pd.DataFrame, weights: dict = None) -> pd.DataFrame:
     conv = []
     for _, r in out.iterrows():
         comps = {"durability": r.get("D"), "valuation": r.get("V"),
-                 "momentum": r.get("M"), "ml_signal": r.get("ml_signal")}
+                 "momentum": r.get("M"), "ml_signal": r.get("ml_signal"),
+                 "quality": r.get("quality_score")}
         gates = {"triple_hit": bool(r.get("triple_hit", False))}
         conv.append(fuse(comps, weights, gates))
     out["conviction"] = np.round(conv, 1)
     n_methods = (
         out[["D", "V", "M"]].notna().any(axis=1).astype(int)
         + out.get("ml_signal", pd.Series(np.nan, index=out.index)).notna().astype(int)
+        + out.get("quality_score", pd.Series(np.nan, index=out.index)).notna().astype(int)
         + out.get("triple_hit", pd.Series(False, index=out.index)).astype(bool).astype(int)
     )
     out["n_confirms"] = n_methods
@@ -112,6 +115,8 @@ def main():
     ap.add_argument("--top", type=int, default=25)
     ap.add_argument("--db", default=os.path.join(HERE, "dvm_composite.db"))
     ap.add_argument("--ml", default=None, help="CSV with ticker,ml_signal (0-100)")
+    ap.add_argument("--quality", default=None,
+                    help="CSV with ticker,quality_score (0-100) from quality_factor.py --out")
     ap.add_argument("--triple-hits", default=None, help="CSV with ticker column (Triple-Hit names)")
     args = ap.parse_args()
 
@@ -119,6 +124,7 @@ def main():
         raise SystemExit("no dvm_composite.db — run dvm_composite.py first")
     df = load_composite(args.market, args.db)
     df = _merge_optional(df, args.ml, "ml_signal")
+    df = _merge_optional(df, args.quality, "quality_score")
     if args.triple_hits and os.path.exists(args.triple_hits):
         th = set(pd.read_csv(args.triple_hits)["ticker"].astype(str))
         df["triple_hit"] = df["ticker"].astype(str).isin(th)

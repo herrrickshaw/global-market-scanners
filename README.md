@@ -24,6 +24,7 @@ across 19 markets, and a Cassandra/Kafka/Flink data backbone.
 | **Screen viability** | `screen_viability.py`, `apply_costs.py` | Backtest the screener.in technical screens, net of tax+brokerage |
 | **Point-in-time backtest** | `pit_fundamentals.py`, `pit_backtest.py` | Lookahead-free Triple-Hit backtest (SEC EDGAR, filed-date filtered) |
 | **Factor research** | `factor_research.py` | Test Markowitz/Sharpe/Fama/Fama-French as falsifiable proposals |
+| **Quality factor (QMJ)** | `quality_factor.py` | AFP/QMJ quality factor (IIMA 2022) — profitability/growth/safety/payout, LQ/QMJ portfolios, price-premium test |
 | **ML screen discovery** | `ml_screen_discovery.py` | Supervised → Unsupervised (new screens) → RL-from-screeners |
 | **DVM / Trendlyne** | `dvm_engine.py`, `dvm_global.py`, `fundamentals_global.py`, `dvm_composite.py` | Durability/Valuation/Momentum scoring + GGG classification across 19 markets |
 | **Decision layer** | `portfolio.py`, `risk.py`, `meta_screen.py`, `sector_rotation.py`, `alerts.py`, `unlisted_valuation.py` | Signals → constrained portfolios, risk/VaR, ensemble conviction, sector rotation, alerts, private-firm comps |
@@ -100,6 +101,7 @@ classification → fundamentals on breakout candidates → styled Excel export**
 - [Screen viability results](SCREEN_VIABILITY_RESULTS.md) · [Net of cost](NET_OF_COST.md)
 - [Point-in-time fundamentals scope](SCOPE_PIT_FUNDAMENTALS.md) · [PIT backtest results](PIT_BACKTEST_RESULTS.md)
 - [ML viability](ML_VIABILITY.md) · [Factor research](FACTOR_RESEARCH.md)
+- [Quality factor (QMJ)](QUALITY_FACTOR.md) — Asness-Frazzini-Pedersen QMJ per IIMA W.P. 2022-11-01, generalised to 19 markets
 
 **Decision layer & consumption**
 - [Decision layer, global rigor & observability](DECISION_LAYER.md) — portfolio / risk / meta-screen / rotation / alerts / comps + global PIT + FX + data quality + serving

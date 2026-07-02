@@ -301,5 +301,68 @@ def test_data_quality_evaluate_pass_fail():
     assert status["stale"] == "PASS" and status["nulls"] == "FAIL"
 
 
+# ── quality_factor.py (AFP/QMJ quality factor — IIMA 2022) ────────────────────
+def test_z_rank_monotonic_and_centered():
+    from quality_factor import z_rank
+    z = z_rank(pd.Series([10, 20, 30, 40, 50]))
+    assert z.is_monotonic_increasing                            # rank order preserved
+    assert z.mean() == pytest.approx(0.0, abs=1e-9)             # standardised
+    assert z.iloc[0] < 0 < z.iloc[-1]
+
+
+def test_dimension_score_applies_sign():
+    from quality_factor import dimension_score
+    df = pd.DataFrame({"de": [1.0, 2.0, 3.0]})                  # lower leverage = better
+    s = dimension_score(df, [("de", -1)])
+    assert s.iloc[0] > s.iloc[2]                                # low-de firm scores higher
+
+
+def test_quality_score_ranks_all_rounder_top():
+    from quality_factor import quality_score, DIMENSIONS
+    df = pd.DataFrame({
+        "ticker": ["GOOD", "MID", "BAD"],
+        "roe": [30, 15, -5], "roa": [20, 8, -2], "op_margin": [30, 12, -8],
+        "rev_growth": [25, 8, -10], "earn_growth": [20, 5, -15],
+        "de": [0.2, 1.0, 3.0], "beta": [0.7, 1.0, 1.8], "vol": [0.15, 0.3, 0.6],
+        "div_yield": [3.0, 1.5, 0.0], "mktcap": [1e9, 5e8, 1e8], "pb": [8, 3, 1],
+    })
+    scored = quality_score(df)
+    assert set(DIMENSIONS).issubset(scored.columns) and "quality" in scored.columns
+    top = scored.sort_values("quality", ascending=False)["ticker"].iloc[0]
+    assert top == "GOOD"                                        # best on every dimension
+
+
+def test_qmj_and_lq_combination_formulas():
+    from quality_factor import qmj_combo, lq_combo
+    legs = {"small_quality": 2.0, "big_quality": 4.0, "small_junk": 1.0, "big_junk": 1.0}
+    assert qmj_combo(legs) == pytest.approx(0.5 * 6 - 0.5 * 2)  # = 2.0
+    assert lq_combo(legs) == pytest.approx(3.0)                 # ½(small_q+big_q)
+
+
+def test_value_weight_proportional_and_normalised():
+    from quality_factor import value_weight
+    w = value_weight(pd.Series([1.0, 3.0]))
+    assert w.sum() == pytest.approx(1.0)
+    assert w.iloc[1] == pytest.approx(0.75)                     # weight ∝ market cap
+
+
+def test_assign_deciles_labels_extremes():
+    from quality_factor import assign_deciles
+    lab = assign_deciles(pd.Series(np.arange(100.0)))
+    assert lab.iloc[-1] == "quality" and lab.iloc[0] == "junk"
+
+
+def test_price_premium_detects_positive_quality_premium():
+    from quality_factor import price_premium
+    rng = np.random.default_rng(3)
+    n = 120
+    q = rng.normal(0, 1, n)                                     # standardised quality
+    logmb = 0.4 * q + rng.normal(0, 0.05, n)                    # M/B rises with quality
+    df = pd.DataFrame({"quality": q, "pb": np.exp(logmb),
+                       "mktcap": np.exp(rng.normal(20, 1, n)), "market": ["US"] * n})
+    pp = price_premium(df)
+    assert pp["quality_coef"] > 0 and pp["quality_t"] > 2       # significant premium
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
