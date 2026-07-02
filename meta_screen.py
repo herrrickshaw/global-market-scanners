@@ -37,8 +37,9 @@ import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-DEFAULT_WEIGHTS = {"durability": 0.25, "valuation": 0.15, "momentum": 0.20,
-                   "ml_signal": 0.20, "quality": 0.20}   # quality = AFP/QMJ score
+DEFAULT_WEIGHTS = {"durability": 0.22, "valuation": 0.13, "momentum": 0.18,
+                   "ml_signal": 0.17, "quality": 0.18, "pead": 0.12}
+# quality = AFP/QMJ score; pead = post-earnings-announcement drift signal
 GATE_BONUS = 10.0          # points added for clearing a hard gate (capped at 100)
 
 
@@ -75,7 +76,7 @@ def rank(df: pd.DataFrame, weights: dict = None) -> pd.DataFrame:
     for _, r in out.iterrows():
         comps = {"durability": r.get("D"), "valuation": r.get("V"),
                  "momentum": r.get("M"), "ml_signal": r.get("ml_signal"),
-                 "quality": r.get("quality_score")}
+                 "quality": r.get("quality_score"), "pead": r.get("pead_score")}
         gates = {"triple_hit": bool(r.get("triple_hit", False))}
         conv.append(fuse(comps, weights, gates))
     out["conviction"] = np.round(conv, 1)
@@ -83,6 +84,7 @@ def rank(df: pd.DataFrame, weights: dict = None) -> pd.DataFrame:
         out[["D", "V", "M"]].notna().any(axis=1).astype(int)
         + out.get("ml_signal", pd.Series(np.nan, index=out.index)).notna().astype(int)
         + out.get("quality_score", pd.Series(np.nan, index=out.index)).notna().astype(int)
+        + out.get("pead_score", pd.Series(np.nan, index=out.index)).notna().astype(int)
         + out.get("triple_hit", pd.Series(False, index=out.index)).astype(bool).astype(int)
     )
     out["n_confirms"] = n_methods
@@ -117,6 +119,8 @@ def main():
     ap.add_argument("--ml", default=None, help="CSV with ticker,ml_signal (0-100)")
     ap.add_argument("--quality", default=None,
                     help="CSV with ticker,quality_score (0-100) from quality_factor.py --out")
+    ap.add_argument("--pead", default=None,
+                    help="CSV with ticker,pead_score (0-100) from pead_factor.py --out")
     ap.add_argument("--triple-hits", default=None, help="CSV with ticker column (Triple-Hit names)")
     args = ap.parse_args()
 
@@ -125,6 +129,7 @@ def main():
     df = load_composite(args.market, args.db)
     df = _merge_optional(df, args.ml, "ml_signal")
     df = _merge_optional(df, args.quality, "quality_score")
+    df = _merge_optional(df, args.pead, "pead_score")
     if args.triple_hits and os.path.exists(args.triple_hits):
         th = set(pd.read_csv(args.triple_hits)["ticker"].astype(str))
         df["triple_hit"] = df["ticker"].astype(str).isin(th)

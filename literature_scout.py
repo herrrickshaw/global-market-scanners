@@ -73,6 +73,10 @@ COVERED_THEMES = {
     "multifactor":    {"kw": ["five-factor", "q-factor", "factor zoo", "replicating anomalies",
                               "which factors", "multifactor model"],
                        "modules": ["factor_research.py", "meta_screen.py"]},
+    # closed by the scout->implement loop: PEAD was flagged as a gap, now implemented.
+    "pead_revisions": {"kw": ["post-earnings-announcement drift", "pead", "analyst revisions",
+                              "earnings surprise", "estimate revision", "earnings momentum"],
+                       "modules": ["pead_factor.py"]},
 }
 
 # ── FRONTIER themes the platform does NOT cover yet (a hit here = opportunity) ──
@@ -81,8 +85,6 @@ FRONTIER_THEMES = {
                         "earnings call", "lazy prices", "language model", "llm"],
     "options_implied": ["implied volatility", "variance risk premium", "option-implied",
                         "volatility skew", "put-call ratio"],
-    "pead_revisions":  ["post-earnings-announcement drift", "pead", "analyst revisions",
-                        "earnings surprise", "estimate revision"],
     "short_crowding":  ["short interest", "factor crowding", "arbitrage capacity", "days to cover"],
     "liquidity":       ["liquidity factor", "amihud illiquidity", "bid-ask spread", "turnover liquidity"],
     "seasonality":     ["seasonality", "january effect", "turn of the month", "sell in may"],

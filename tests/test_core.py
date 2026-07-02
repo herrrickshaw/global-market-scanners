@@ -378,10 +378,16 @@ def test_score_paper_covered_vs_gap_classification():
                            "year": 2019, "citations": 2000})
     assert covered["coverage"] in ("covered", "extends")
     assert "quality_factor.py" in covered["modules"]
-    gap = score_paper({"title": "Post-earnings-announcement drift and analyst revisions",
-                       "year": 2021, "citations": 100})
-    assert gap["coverage"] == "gap"                            # frontier theme, no module
-    assert "pead_revisions" in gap["frontier_themes"]
+    # PEAD used to be a gap; the scout->implement loop closed it (now pead_factor.py)
+    pead = score_paper({"title": "Post-earnings-announcement drift and analyst revisions",
+                        "year": 2021, "citations": 100})
+    assert pead["coverage"] in ("covered", "extends")
+    assert "pead_factor.py" in pead["modules"]
+    # a still-open frontier theme is classified as a gap
+    gap = score_paper({"title": "ESG factor and climate risk premium in equities",
+                       "year": 2022, "citations": 80})
+    assert gap["coverage"] == "gap"
+    assert "esg_climate" in gap["frontier_themes"]
     unmapped = score_paper({"title": "A study of igneous rock formation", "year": 2000})
     assert unmapped["coverage"] == "unmapped"
 
@@ -417,6 +423,55 @@ def test_strip_jats_and_report_sections():
     ranked = rank(SEED_PAPERS)
     md = render_report(ranked, coverage_summary(ranked), query=None)
     assert "## Top relevant papers" in md and "## Research gaps" in md and "## Coverage summary" in md
+
+
+# ── pead_factor.py (post-earnings-announcement drift) ─────────────────────────
+def test_sue_standardised_unexpected_earnings():
+    from pead_factor import sue
+    assert sue(120, 100, 10) == pytest.approx(2.0)              # 2 std beat
+    assert np.isnan(sue(120, 100, 0))                           # zero std -> undefined
+
+
+def test_market_adjust_and_car():
+    from pead_factor import market_adjust, car
+    stock = pd.Series([0.02, -0.01, 0.03, 0.00])
+    mkt = pd.Series([0.01, -0.01, 0.01, 0.01])
+    abn = market_adjust(stock, mkt)
+    assert abn.iloc[0] == pytest.approx(0.01)                   # 0.02 − 0.01
+    assert car(abn, 0, 3) == pytest.approx(abn.sum())          # full-window CAR = sum
+
+
+def test_detect_events_finds_volume_return_spike():
+    from pead_factor import detect_events
+    n = 120
+    close = pd.Series(100 + np.zeros(n), dtype=float)
+    close.iloc[80] = 112                                        # +12% jump on day 80
+    close.iloc[81:] = 112
+    vol = pd.Series(1e5, index=range(n), dtype=float)
+    vol.iloc[80] = 1e6                                          # 10x volume spike
+    ev = detect_events(close.reset_index(drop=True), vol, lookback=20)
+    assert 80 in ev                                             # the earnings-proxy day is caught
+
+
+def test_pead_score_direction_and_decay():
+    from pead_factor import pead_score
+    fresh_pos = pead_score(0.10, days_since=0)
+    old_pos = pead_score(0.10, days_since=40)
+    assert fresh_pos > 50 and old_pos > 50                      # positive surprise -> bullish
+    assert fresh_pos > old_pos                                  # decays over the window
+    assert pead_score(-0.10, 0) < 50                            # negative surprise -> bearish
+    assert pead_score(0.10, days_since=999) == 50.0            # past the window -> neutral
+
+
+def test_drift_by_surprise_monotone_when_pead_present():
+    from pead_factor import drift_by_surprise, monotonicity
+    rng = np.random.default_rng(5)
+    n = 400
+    surprise = rng.normal(0, 0.05, n)
+    fwd = 0.4 * surprise + rng.normal(0, 0.01, n)               # drift follows surprise (PEAD)
+    curve = drift_by_surprise(pd.DataFrame({"surprise": surprise, "fwd_car": fwd}), q=5)
+    assert list(curve["mean%"]) == sorted(curve["mean%"])       # monotone increasing
+    assert monotonicity(curve) == pytest.approx(1.0)           # perfect PEAD ordering
 
 
 if __name__ == "__main__":
