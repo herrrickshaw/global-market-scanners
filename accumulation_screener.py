@@ -99,12 +99,8 @@ def monotonicity(curve: pd.DataFrame, col: str = "median_fwd%") -> float:
 
 # ── data assembly (offline, point-in-time) ────────────────────────────────────
 def _wide(market: str):
-    p = os.path.join(SEED, f"cleaned_long_{market}.parquet")
-    if not os.path.exists(p):
-        return None
-    px = pd.read_parquet(p)
-    return {k: px.pivot_table(index="Date", columns="Symbol", values=k, aggfunc="last").astype(float)
-            for k in ("Close", "High", "Low", "Volume")}
+    import marketdata
+    return marketdata.wide(market)
 
 
 def build_panel(market: str, horizon: int, sig_window: int = SIG_WINDOW) -> pd.DataFrame:
@@ -180,8 +176,7 @@ def main():
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
-    markets = ([f.split("cleaned_long_")[1].split(".")[0]
-                for f in sorted(os.listdir(SEED)) if f.startswith("cleaned_long_")]
+    markets = (marketdata.market_list()
                if (args.all or not args.market) else [args.market])
 
     # ── validation ────────────────────────────────────────────────────────────

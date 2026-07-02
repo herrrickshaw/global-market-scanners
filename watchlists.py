@@ -37,6 +37,8 @@ import warnings
 import numpy as np
 import pandas as pd
 
+import marketdata
+
 warnings.filterwarnings("ignore")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -49,7 +51,8 @@ MIN_ACCUM = 0.5           # accumulation-score floor for "being accumulated"
 # ── pure filter / merge core ──────────────────────────────────────────────────
 def clean_key(t) -> str:
     """Cross-source join key: bare, upper-cased symbol (drops the .NS/.T suffix)."""
-    return str(t).split(".")[0].upper()
+    from marketdata import clean_key as _ck
+    return _ck(t)
 
 
 def strong_from_scores(scored: pd.DataFrame, min_quality: float = MIN_QUALITY) -> pd.DataFrame:
@@ -104,8 +107,7 @@ def build_accumulated(markets) -> pd.DataFrame:
 
 def _markets(args) -> list:
     if args.all or not args.market:
-        return [f.split("cleaned_long_")[1].split(".")[0]
-                for f in sorted(os.listdir(SEED)) if f.startswith("cleaned_long_")]
+        return marketdata.market_list()
     return [args.market]
 
 

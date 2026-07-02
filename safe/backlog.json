@@ -322,6 +322,14 @@
       "status": "done",
       "name": "Earnings \u00d7 liquidity/volume/price study",
       "hypothesis": "An event study conditioning PEAD on pre-event liquidity, volume and price tests whether the drift is stronger in illiquid/low-volume names (Chordia-Sadka); reuses pead_factor + liquidity_factor."
+    },
+    {
+      "id": "E30",
+      "theme": "ST4",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "Code abstraction (shared marketdata library)",
+      "hypothesis": "Extracting the copy-pasted data-loading, universe-filtering, ticker-normalising and cross-sectional-stat helpers into one marketdata.py (public module names preserved) removes duplication across ~15 modules and gives a single source of truth + a function glossary."
     }
   ],
   "features": [
@@ -981,6 +989,15 @@
       "size": 5,
       "name": "Real US earnings dates: EDGAR 10-Q/10-K filing dates replace the volume proxy; illiq_IC +0.010 -> +0.102",
       "module": "earnings_liquidity.py"
+    },
+    {
+      "id": "F30.1",
+      "epic": "E30",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "marketdata.py shared blocks (market_list/wide/close_volume/liquid_symbols/clean_key/zscore/market_proxy/IC/monotonicity/trend_corr) + refactor 15 modules to delegate + GLOSSARY.md",
+      "module": "marketdata.py"
     }
   ],
   "kpis": [
@@ -1022,7 +1039,7 @@
     },
     {
       "metric": "Test suite",
-      "value": "93 unit tests, CI-gated (pytest + govern + integrity)"
+      "value": "97 unit tests, CI-gated (pytest + govern + integrity)"
     },
     {
       "metric": "External validation",
@@ -1051,6 +1068,10 @@
     {
       "metric": "Earnings-event study",
       "value": "real EDGAR filing dates sharpen US PEAD-illiquidity IC 10x (+0.010 proxy -> +0.102 real); per-country strongest in emerging BR (+0.24)"
+    },
+    {
+      "metric": "Code reuse",
+      "value": "shared marketdata.py: 1 loader/universe/stats library replaces copies across ~15 modules; GLOSSARY.md documents every block"
     }
   ]
 }

@@ -39,6 +39,8 @@ import warnings
 import numpy as np
 import pandas as pd
 
+import marketdata
+
 warnings.filterwarnings("ignore")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -147,9 +149,8 @@ def accumulation_features(high, low, close, volume) -> dict:
 
 
 def _z(s: pd.Series) -> pd.Series:
-    s = pd.to_numeric(s, errors="coerce").replace([np.inf, -np.inf], np.nan)
-    sd = s.std(ddof=0)
-    return (s - s.mean()) / sd if sd and not np.isnan(sd) else pd.Series(0.0, index=s.index)
+    from marketdata import zscore
+    return zscore(s)
 
 
 def accumulation_score(feat: pd.DataFrame) -> pd.Series:
@@ -212,8 +213,7 @@ def main():
     ap.add_argument("--top", type=int, default=15)
     args = ap.parse_args()
 
-    markets = ([f.split("cleaned_long_")[1].split(".")[0]
-                for f in sorted(os.listdir(SEED)) if f.startswith("cleaned_long_")]
+    markets = (marketdata.market_list()
                if (args.all or not args.market) else [args.market])
     scans = [scan_market(m, args.lookback) for m in markets]
     scans = [s for s in scans if not s.empty]

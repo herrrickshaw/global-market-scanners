@@ -30,6 +30,8 @@ import warnings
 import numpy as np
 import pandas as pd
 
+import marketdata
+
 warnings.filterwarnings("ignore")
 
 SEED = os.path.expanduser("~/Downloads/code/python_files/cache_seed")
@@ -92,8 +94,7 @@ def main():
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--top", type=int, default=15)
     args = ap.parse_args()
-    markets = ([f.split("cleaned_long_")[1].split(".")[0]
-                for f in sorted(os.listdir(SEED)) if f.startswith("cleaned_long_")]
+    markets = (marketdata.market_list()
                if (args.all or not args.market) else [args.market])
     df = pd.concat([scan_market(m) for m in markets], ignore_index=True)
     if df.empty:

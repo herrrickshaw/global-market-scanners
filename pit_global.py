@@ -33,6 +33,8 @@ import sys
 import numpy as np
 import pandas as pd
 
+import marketdata
+
 from apply_costs import COSTS_PCT
 from pit_backtest import darvas_breakout, metrics
 
@@ -141,8 +143,7 @@ def main():
     ap.add_argument("--db", default="pit_global.db")
     args = ap.parse_args()
 
-    markets = ([f.split("cleaned_long_")[1].split(".")[0]
-                for f in sorted(os.listdir(SEED)) if f.startswith("cleaned_long_")]
+    markets = (marketdata.market_list()
                if args.all else [args.market])
     out = []
     for m in markets:

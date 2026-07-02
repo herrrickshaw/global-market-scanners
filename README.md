@@ -92,6 +92,7 @@ classification → fundamentals on breakout candidates → styled Excel export**
 
 **Guides**
 - [User Guide](USER_GUIDE.md) — end-to-end workflows for every capability
+- [Glossary of reusable blocks](GLOSSARY.md) — the shared `marketdata.py` library + each module's pure functions
 - [Security & Integrity](SECURITY.md) — signed commits, checksum manifest, branch protection
 - [Performance](PERFORMANCE.md) — measured bottlenecks & fixes
 - [SAFe delivery](safe/SAFE.md) — the platform as a queryable Scaled-Agile backlog (`safe/safe_backlog.py`)

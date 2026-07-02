@@ -149,12 +149,9 @@ LIQ_QUANTILE = 0.60      # keep only the top 40% by median $-volume within a mar
 
 
 def _liquid_symbols(close: pd.DataFrame, vol: pd.DataFrame) -> list:
-    """Top (1−LIQ_QUANTILE) of names by trailing median dollar-volume, with enough
-    history — the event study is meaningful only on reasonably liquid, clean series."""
-    dv = (close * vol).tail(252).median()
-    hist_ok = close.notna().sum() >= MIN_HISTORY
-    cut = dv.quantile(LIQ_QUANTILE)
-    return [s for s in close.columns if dv.get(s, 0) >= cut and hist_ok.get(s, False)]
+    """The tradeable universe — delegates to the shared marketdata filter."""
+    import marketdata
+    return marketdata.liquid_symbols(close, vol, quantile=LIQ_QUANTILE, min_history=MIN_HISTORY)
 
 
 def scan_market(market: str, horizon: int = 60) -> tuple:
@@ -205,8 +202,7 @@ def main():
     ap.add_argument("--out", default=None, help="write ticker,pead_score CSV for meta_screen")
     args = ap.parse_args()
 
-    markets = ([f.split("cleaned_long_")[1].split(".")[0]
-                for f in sorted(os.listdir(SEED)) if f.startswith("cleaned_long_")]
+    markets = (marketdata.market_list()
                if (args.all or not args.market) else [args.market])
 
     all_ev, all_sig = [], []

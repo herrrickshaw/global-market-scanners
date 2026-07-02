@@ -64,7 +64,8 @@ def rank_groups(members: pd.DataFrame, group_col: str, min_members: int = 3) -> 
 # ── data assembly ─────────────────────────────────────────────────────────────
 def _clean_ticker(t: str) -> str:
     """cleaned_long uses bare symbols; companies_industry uses suffixed tickers."""
-    return str(t).split(".")[0].upper()
+    from marketdata import clean_key
+    return clean_key(t)
 
 
 def build_member_table(by: str, market: str | None) -> pd.DataFrame:

@@ -30,6 +30,8 @@ import warnings
 import numpy as np
 import pandas as pd
 
+import marketdata
+
 warnings.filterwarnings("ignore")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -59,7 +61,8 @@ def peer_signal(peer_lagged_return: float) -> float:
 
 # ── data assembly (offline, point-in-time) ────────────────────────────────────
 def _clean(t):
-    return str(t).split(".")[0].upper()
+    from marketdata import clean_key
+    return clean_key(t)
 
 
 def build_panel(market: str, lag: int = LAG, horizon: int = HORIZON) -> pd.DataFrame:
@@ -114,8 +117,7 @@ def main():
     args = ap.parse_args()
     from accumulation_screener import quantile_returns, information_coefficient, monotonicity
 
-    markets = ([f.split("cleaned_long_")[1].split(".")[0]
-                for f in sorted(os.listdir(SEED)) if f.startswith("cleaned_long_")]
+    markets = (marketdata.market_list()
                if (args.all or not args.market) else [args.market])
     panel = pd.concat([build_panel(m, args.lag, args.horizon) for m in markets], ignore_index=True)
     panel = panel[panel["fwd_ret"].abs() < 3.0] if not panel.empty else panel

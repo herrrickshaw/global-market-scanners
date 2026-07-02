@@ -116,13 +116,9 @@ def monotonicity(curve: pd.DataFrame, col: str = "mean_fwd%") -> float:
 
 # ── data assembly (offline, prices) ───────────────────────────────────────────
 def _market_wide(market: str):
-    p = os.path.join(SEED, f"cleaned_long_{market}.parquet")
-    if not os.path.exists(p):
-        return None, None
-    px = pd.read_parquet(p)
-    close = px.pivot_table(index="Date", columns="Symbol", values="Close", aggfunc="last").astype(float)
-    vol = px.pivot_table(index="Date", columns="Symbol", values="Volume", aggfunc="last").astype(float)
-    return close, vol
+    """(close, volume) wide frames — delegates to the shared marketdata loader."""
+    import marketdata
+    return marketdata.close_volume(market)
 
 
 def scan_market(market: str, lookback: int = DEFAULT_LOOKBACK, horizon: int = DEFAULT_HORIZON) -> tuple:
@@ -177,8 +173,7 @@ def main():
     ap.add_argument("--out", default=None, help="write ticker,capacity_score CSV for meta_screen")
     args = ap.parse_args()
 
-    markets = ([f.split("cleaned_long_")[1].split(".")[0]
-                for f in sorted(os.listdir(SEED)) if f.startswith("cleaned_long_")]
+    markets = (marketdata.market_list()
                if (args.all or not args.market) else [args.market])
 
     panels, scores = [], []

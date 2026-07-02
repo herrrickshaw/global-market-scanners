@@ -29,6 +29,8 @@ import warnings
 import numpy as np
 import pandas as pd
 
+import marketdata
+
 warnings.filterwarnings("ignore")
 
 SEED = os.path.expanduser("~/Downloads/code/python_files/cache_seed")
@@ -112,8 +114,7 @@ def main():
     ap.add_argument("--market", default="US")
     ap.add_argument("--all", action="store_true")
     args = ap.parse_args()
-    markets = ([f.split("cleaned_long_")[1].split(".")[0]
-                for f in sorted(os.listdir(SEED)) if f.startswith("cleaned_long_")]
+    markets = (marketdata.market_list()
                if args.all else [args.market])
     for m in markets:
         r = market_returns(m)

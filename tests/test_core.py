@@ -930,5 +930,39 @@ def test_parse_submissions_filters_earnings_forms():
     assert dates == ["2025-08-01", "2025-10-31", "2026-05-01"]       # sorted, 8-K & Form-4 dropped
 
 
+# ── marketdata.py (shared reusable blocks) ────────────────────────────────────
+def test_marketdata_clean_key_and_zscore():
+    import marketdata as md
+    assert md.clean_key("AAPL.NS") == "AAPL" and md.clean_key("brk-b") == "BRK-B"
+    z = md.zscore(pd.Series([1.0, 2.0, 3.0]))
+    assert z.mean() == pytest.approx(0.0, abs=1e-9) and z.iloc[0] < 0 < z.iloc[-1]
+    zi = md.zscore(pd.Series([np.inf, 1.0, 2.0, 3.0]))
+    assert pd.isna(zi.iloc[0]) and (zi.dropna().abs() < 10).all()             # inf -> NaN, no blow-up
+
+
+def test_marketdata_liquid_symbols_filter():
+    import marketdata as md
+    idx = pd.date_range("2024-01-01", periods=300, freq="B")
+    close = pd.DataFrame({"BIG": 100.0, "SMALL": 5.0}, index=idx)
+    vol = pd.DataFrame({"BIG": 1e6, "SMALL": 1e2}, index=idx)                  # BIG far more $-volume
+    liq = md.liquid_symbols(close, vol, quantile=0.5)
+    assert "BIG" in liq and "SMALL" not in liq
+
+
+def test_marketdata_ic_and_monotonicity():
+    import marketdata as md
+    x = np.arange(1, 21, dtype=float)
+    assert md.information_coefficient(x, 2 * x) == pytest.approx(1.0)
+    curve = pd.DataFrame({"v": [1.0, 2.0, 3.0, 4.0, 5.0]})
+    assert md.monotonicity(curve, "v") == pytest.approx(1.0)
+    assert md.trend_corr([1, 2, 3, 4, 5]) == pytest.approx(1.0)
+
+
+def test_marketdata_delegation_preserves_module_helpers():
+    # the refactored modules delegate to marketdata but keep their public names/behaviour
+    import liquidity_factor as lf, pead_factor as pf, watchlists as wl, marketdata as md
+    assert wl.clean_key("XYZ.BO") == md.clean_key("XYZ.BO") == "XYZ"
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
