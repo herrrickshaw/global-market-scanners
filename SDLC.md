@@ -28,10 +28,11 @@ Now:
   metrics, meta-screen fusion, FX, incremental refresh, feature-cache keys, serve
   query/injection guard, data-quality rules) plus the AFP/QMJ quality factor
   (standardised ranks, dimension scoring, QMJ/LQ combination, price-premium test).
-  `pytest -q` → **64 passed** (incl. the literature scout, the PEAD event-study core,
+  `pytest -q` → **71 passed** (incl. the literature scout, the PEAD event-study core,
   the Amihud liquidity core, the public data-source registry, the Ken French factor
-  parser + Carhart alpha regression, and the HFT-archetype proxies — Corwin-Schultz
-  spread, Kaufman efficiency ratio, OU half-life, archetype routing).
+  parser + Carhart alpha regression, the HFT-archetype proxies, and the Darvas ×
+  volume-acquisition monitor — OBV/CMF/up-down volume, box formation with the current
+  bar excluded, breakout/breakdown state).
 - **`.github/workflows/ci.yml`** — on every push/PR to `main`:
   1. **Unit tests** (SDLC Integration & Testing)
   2. **Architecture governance** — `togaf.py govern` (10/10 principles must stay compliant)

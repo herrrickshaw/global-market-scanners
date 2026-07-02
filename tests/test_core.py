@@ -635,5 +635,64 @@ def test_archetype_scores_route_names_correctly():
     assert s["latency"].idxmax() == "LAT"                                # persistent/predictable
 
 
+# ── darvas_volume.py (Darvas box × volume-acquisition monitor) ────────────────
+def test_obv_accumulates_on_up_closes():
+    from darvas_volume import obv
+    o = obv([10, 11, 10, 11], [100, 100, 100, 100])
+    assert o[-1] == pytest.approx(100)                         # +100 −100 +100
+    assert obv([10, 11, 12, 13], [100] * 4)[-1] == pytest.approx(300)   # all up
+
+
+def test_chaikin_money_flow_sign():
+    from darvas_volume import chaikin_money_flow
+    # closes at the high each day -> strong accumulation (CMF -> +1)
+    hi = chaikin_money_flow([10, 11], [9, 10], [10, 11], [100, 100])
+    lo = chaikin_money_flow([10, 11], [9, 10], [9, 10], [100, 100])   # closes at the low
+    assert hi == pytest.approx(1.0) and lo == pytest.approx(-1.0)
+
+
+def test_up_down_volume_ratio():
+    from darvas_volume import up_down_volume_ratio
+    r = up_down_volume_ratio([10, 11, 10, 12], [100, 300, 100, 200])  # up vol 500, down vol 100
+    assert r == pytest.approx(5.0)
+
+
+def test_trend_corr_direction():
+    from darvas_volume import trend_corr
+    assert trend_corr([1, 2, 3, 4, 5]) == pytest.approx(1.0)
+    assert trend_corr([5, 4, 3, 2, 1]) == pytest.approx(-1.0)
+    assert np.isnan(trend_corr([3, 3, 3]))
+
+
+def test_darvas_box_excludes_current_bar():
+    from darvas_volume import darvas_box, box_state
+    highs = [5, 6, 7, 8, 10, 9, 9, 9, 12]      # peak 10 holds 3 bars; current bar (12) is a breakout
+    lows = [4, 5, 6, 7, 9, 8, 8, 8, 11]
+    box = darvas_box(highs, lows, lookback=40, confirm=3)      # current bar excluded (design rule)
+    assert box["top"] == pytest.approx(10) and box["bottom"] == pytest.approx(8)
+    # including the current bar would swallow the breakout -> top becomes 12
+    assert darvas_box(highs, lows, exclude_current=False)["top"] == pytest.approx(12)
+    st = box_state(close_last=12, high_last=12, low_last=11, box=box, vol_last=300, vol_avg=100)
+    assert st["state"] == "breakout" and st["vol_confirmed"] is True    # 300 >= 1.5×100
+
+
+def test_box_state_in_box_and_breakdown():
+    from darvas_volume import box_state
+    box = {"top": 10.0, "bottom": 8.0}
+    assert box_state(9, 9.1, 8.9, box, 100, 100)["state"] == "in_box"
+    assert box_state(7, 7.1, 6.9, box, 100, 100)["state"] == "breakdown"
+    assert box_state(9, 9, 9, box, 100, 100)["position"] == pytest.approx(0.5)
+
+
+def test_accumulation_score_ranks_stealth_accumulation_higher():
+    from darvas_volume import accumulation_score
+    df = pd.DataFrame({
+        "obv_trend": [0.9, -0.5], "ad_trend": [0.9, -0.4], "cmf": [0.3, -0.2],
+        "ud_vol_ratio": [2.5, 0.5], "vol_trend": [0.8, -0.3], "eff_ratio": [0.05, 0.9]},
+        index=["accum", "distrib"])
+    s = accumulation_score(df)
+    assert s["accum"] > s["distrib"]                          # rising OBV/CMF/up-vol + pinned price
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
