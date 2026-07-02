@@ -733,5 +733,39 @@ def test_intersect_strong_and_accumulated():
     assert list(both["key"]) == ["BBB"]                       # only BBB is in both lists
 
 
+# ── accumulation_screener.py (CMF/accumulation screen + validation) ───────────
+def test_accumulation_signal_sign():
+    from accumulation_screener import accumulation_signal
+    n = 12
+    # accumulation: closes near the high, price + volume rising, up-days
+    high = np.arange(10, 10 + n, dtype=float) + 0.5
+    low = np.arange(10, 10 + n, dtype=float) - 0.5
+    close = np.arange(10, 10 + n, dtype=float) + 0.4          # near the high each day
+    volume = np.arange(100, 100 + n * 10, 10, dtype=float)
+    acc = accumulation_signal(high, low, close, volume)
+    assert acc["cmf"] > 0.3 and acc["accum"] > 0             # net accumulation
+    # distribution: same valid band but closes near the LOW each day
+    close_d = np.arange(10, 10 + n, dtype=float) - 0.4       # near the low (still within band)
+    dist = accumulation_signal(high, low, close_d, volume)
+    assert dist["cmf"] < -0.3                                 # net distribution
+
+
+def test_information_coefficient():
+    from accumulation_screener import information_coefficient
+    sig = np.arange(1, 21, dtype=float)
+    assert information_coefficient(sig, 2 * sig + 1) == pytest.approx(1.0)   # perfect +
+    assert information_coefficient(sig, -sig) == pytest.approx(-1.0)         # perfect −
+
+
+def test_quantile_returns_monotone():
+    from accumulation_screener import quantile_returns, monotonicity
+    n = 500
+    sig = np.linspace(0, 1, n)
+    panel = pd.DataFrame({"accum": sig, "fwd_ret": 0.1 * sig})   # return rises with signal
+    curve = quantile_returns(panel, "accum", q=5)
+    assert list(curve["median_fwd%"]) == sorted(curve["median_fwd%"])       # Q1<...<Q5
+    assert monotonicity(curve) == pytest.approx(1.0)
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

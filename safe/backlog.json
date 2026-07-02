@@ -1,119 +1,858 @@
 {
   "art": "Global Market Quant Platform ART",
   "strategic_themes": [
-    {"id": "ST1", "name": "Global multi-market screening at scale", "desc": "Screen every reachable market on one consistent framework."},
-    {"id": "ST2", "name": "Rigorous, lookahead-free research", "desc": "Point-in-time backtesting and falsifiable factor research."},
-    {"id": "ST3", "name": "Production-grade, cost-efficient data backbone", "desc": "Cache-first, streaming-capable, fast, rate-limit-safe."},
-    {"id": "ST4", "name": "Secure, reproducible, documented platform", "desc": "Signed & verifiable, fully documented, easy to run."}
+    {
+      "id": "ST1",
+      "name": "Global multi-market screening at scale",
+      "desc": "Screen every reachable market on one consistent framework."
+    },
+    {
+      "id": "ST2",
+      "name": "Rigorous, lookahead-free research",
+      "desc": "Point-in-time backtesting and falsifiable factor research."
+    },
+    {
+      "id": "ST3",
+      "name": "Production-grade, cost-efficient data backbone",
+      "desc": "Cache-first, streaming-capable, fast, rate-limit-safe."
+    },
+    {
+      "id": "ST4",
+      "name": "Secure, reproducible, documented platform",
+      "desc": "Signed & verifiable, fully documented, easy to run."
+    }
   ],
   "value_streams": [
-    {"id": "VS1", "name": "Signal-to-decision", "desc": "Raw market data -> screens/scores -> ranked, validated candidates."}
+    {
+      "id": "VS1",
+      "name": "Signal-to-decision",
+      "desc": "Raw market data -> screens/scores -> ranked, validated candidates."
+    }
   ],
   "pis": [
-    {"id": "PI-1", "name": "Scanner foundation & dataset", "objectives": ["5-market Darvas/Piotroski/CoffeeCan scanners", "Industry/peer + unlisted-firm dataset"]},
-    {"id": "PI-2", "name": "Research & ML", "objectives": ["Point-in-time backtest engine", "Factor research (4 papers)", "Hybrid ML screen discovery"]},
-    {"id": "PI-3", "name": "Global scoring & data backbone", "objectives": ["Trendlyne DVM across 19 markets", "Cassandra/Kafka/Flink + DuckDB warehouse"]},
-    {"id": "PI-4", "name": "Hardening", "objectives": ["Performance (13x) + rate-limit governance", "Security, integrity, full docs"]},
-    {"id": "PI-5", "name": "Serving & incremental analytics", "objectives": ["API/dashboard serving layer", "Partition-incremental results + ML feature cache"]},
-    {"id": "PI-6", "name": "Decision layer, global rigor & observability", "objectives": ["Portfolio/risk/meta-screen/rotation/alerts decision layer", "Global point-in-time backtest + FX normalisation", "Data-quality observability"]},
-    {"id": "PI-7", "name": "Academic factor implementation & research scouting", "objectives": ["AFP/QMJ quality factor (IIMA 2022) generalised to 19 markets", "Quality price-premium test + meta-screen fusion", "Automated global literature scout with research-gap detection"]}
+    {
+      "id": "PI-1",
+      "name": "Scanner foundation & dataset",
+      "objectives": [
+        "5-market Darvas/Piotroski/CoffeeCan scanners",
+        "Industry/peer + unlisted-firm dataset"
+      ]
+    },
+    {
+      "id": "PI-2",
+      "name": "Research & ML",
+      "objectives": [
+        "Point-in-time backtest engine",
+        "Factor research (4 papers)",
+        "Hybrid ML screen discovery"
+      ]
+    },
+    {
+      "id": "PI-3",
+      "name": "Global scoring & data backbone",
+      "objectives": [
+        "Trendlyne DVM across 19 markets",
+        "Cassandra/Kafka/Flink + DuckDB warehouse"
+      ]
+    },
+    {
+      "id": "PI-4",
+      "name": "Hardening",
+      "objectives": [
+        "Performance (13x) + rate-limit governance",
+        "Security, integrity, full docs"
+      ]
+    },
+    {
+      "id": "PI-5",
+      "name": "Serving & incremental analytics",
+      "objectives": [
+        "API/dashboard serving layer",
+        "Partition-incremental results + ML feature cache"
+      ]
+    },
+    {
+      "id": "PI-6",
+      "name": "Decision layer, global rigor & observability",
+      "objectives": [
+        "Portfolio/risk/meta-screen/rotation/alerts decision layer",
+        "Global point-in-time backtest + FX normalisation",
+        "Data-quality observability"
+      ]
+    },
+    {
+      "id": "PI-7",
+      "name": "Academic factor implementation & research scouting",
+      "objectives": [
+        "AFP/QMJ quality factor (IIMA 2022) generalised to 19 markets",
+        "Quality price-premium test + meta-screen fusion",
+        "Automated global literature scout with research-gap detection"
+      ]
+    }
   ],
   "epics": [
-    {"id": "E1", "theme": "ST1", "pi": "PI-1", "status": "done", "name": "Multi-market scanner suite", "hypothesis": "One 5-stage pipeline (universe->OHLC->Darvas->fundamentals->Excel) generalises across markets."},
-    {"id": "E2", "theme": "ST1", "pi": "PI-3", "status": "done", "name": "Trendlyne-style DVM scoring & global screening", "hypothesis": "D/V/M scoring + public screen definitions extend to all markets with local data."},
-    {"id": "E3", "theme": "ST2", "pi": "PI-2", "status": "done", "name": "Point-in-time backtesting & factor research", "hypothesis": "Filed-date EDGAR data enables lookahead-free tests of the fundamental gate and classic factors."},
-    {"id": "E4", "theme": "ST2", "pi": "PI-2", "status": "done", "name": "Hybrid ML screen discovery", "hypothesis": "Supervised->unsupervised->RL-from-screeners can invent new, validated screens."},
-    {"id": "E5", "theme": "ST3", "pi": "PI-3", "status": "done", "name": "Data backbone", "hypothesis": "Cassandra (operational) + DuckDB (analytical) + Kafka/Flink/CDC removes the re-download bottleneck and scales."},
-    {"id": "E6", "theme": "ST3", "pi": "PI-4", "status": "done", "name": "Performance & rate-limit resilience", "hypothesis": "Caching, vectorisation, parallelism and centralised throttling make runs fast and limit-safe."},
-    {"id": "E7", "theme": "ST4", "pi": "PI-4", "status": "done", "name": "Security, integrity & documentation", "hypothesis": "Signed commits + branch protection + manifest + docs make the repo trustworthy and reproducible."},
-    {"id": "E8", "theme": "ST1", "pi": "PI-5", "status": "done", "name": "Serving layer & consumption", "hypothesis": "An API + dashboard over the warehouse turns results into a product surface."},
-    {"id": "E9", "theme": "ST3", "pi": "PI-5", "status": "done", "name": "Incremental analytics", "hypothesis": "Partition-incremental result refresh + ML feature cache make daily runs near-instant."},
-    {"id": "E10", "theme": "ST1", "pi": "PI-6", "status": "done", "name": "Decision & risk layer", "hypothesis": "Fusing screens into a conviction score and turning signals into constrained, risk-measured portfolios converts research into decisions."},
-    {"id": "E11", "theme": "ST2", "pi": "PI-6", "status": "done", "name": "Multi-market rigor", "hypothesis": "A price-based point-in-time backtest and FX-normalised comparison make all 19 markets rigorously comparable, not just the US."},
-    {"id": "E12", "theme": "ST4", "pi": "PI-6", "status": "done", "name": "Data observability", "hypothesis": "Freshness/completeness/outlier checks on the data (not just the code) catch silent data rot."},
-    {"id": "E13", "theme": "ST2", "pi": "PI-7", "status": "done", "name": "Quality factor (QMJ)", "hypothesis": "The AFP/QMJ quality factor (Jacob-Pradeep-Varma, IIMA 2022) — profitability/growth/safety/payout via standardised ranks — earns a valuation premium and adds a sticky, fundamentals-based signal to the ensemble across markets."},
-    {"id": "E14", "theme": "ST2", "pi": "PI-7", "status": "done", "name": "Literature scouting", "hypothesis": "An automated scout over open scholarly APIs, seeded from the implemented papers, keeps the platform current and surfaces research gaps (frontier themes not yet implemented) as a feed into the backlog."},
-    {"id": "E15", "theme": "ST2", "pi": "PI-7", "status": "done", "name": "PEAD factor (scout-driven)", "hypothesis": "Post-earnings-announcement drift — the scout's top-ranked research gap — implemented as a price-based, lookahead-free event study across markets; closes the scout->implement->covered loop and adds a drift signal to the ensemble."},
-    {"id": "E16", "theme": "ST2", "pi": "PI-7", "status": "done", "name": "Liquidity factor (scout-driven)", "hypothesis": "The Amihud (2002) illiquidity measure and liquidity premium — the scout's second gap — implemented from OHLC across 19 markets; yields a validated tradeability/capacity score for the ensemble and position sizing."},
-    {"id": "E17", "theme": "ST4", "pi": "PI-7", "status": "done", "name": "Public data-source registry & benchmark", "hypothesis": "A per-market registry of public factor libraries (AQR QMJ, Ken French, IIMA IFFM), plus a benchmark that fetches the real Ken French factors and regresses our quality portfolio on them, validates our factors against externally-published returns while keeping the platform on free/public sources."},
-    {"id": "E18", "theme": "ST1", "pi": "PI-7", "status": "done", "name": "HFT-archetype tradeability screen", "hypothesis": "The four HFT archetypes (market-making, stat-arb, latency, ETF-arb) can be operationalised as a Tier-1 stock picker from daily OHLC proxies (Corwin-Schultz spread, Kaufman efficiency ratio, OU half-life, autocorrelations) over a 1-week window on liquid names."},
-    {"id": "E19", "theme": "ST1", "pi": "PI-7", "status": "done", "name": "Darvas volume-acquisition monitor", "hypothesis": "A Darvas box (current bar excluded) overlaid with volume-acquisition signals (OBV/Chaikin A/D/CMF/up-down volume) and HFT footprint proxies detects stealth accumulation coils and volume-confirmed breakouts."},
-    {"id": "E20", "theme": "ST1", "pi": "PI-7", "status": "done", "name": "Strong & accumulated watchlists", "hypothesis": "Two separate ranked shortlists — fundamentally strong (QMJ quality) and being accumulated (Darvas volume acquisition) — plus their intersection, turn the platform's signals into actionable watchlists."}
+    {
+      "id": "E1",
+      "theme": "ST1",
+      "pi": "PI-1",
+      "status": "done",
+      "name": "Multi-market scanner suite",
+      "hypothesis": "One 5-stage pipeline (universe->OHLC->Darvas->fundamentals->Excel) generalises across markets."
+    },
+    {
+      "id": "E2",
+      "theme": "ST1",
+      "pi": "PI-3",
+      "status": "done",
+      "name": "Trendlyne-style DVM scoring & global screening",
+      "hypothesis": "D/V/M scoring + public screen definitions extend to all markets with local data."
+    },
+    {
+      "id": "E3",
+      "theme": "ST2",
+      "pi": "PI-2",
+      "status": "done",
+      "name": "Point-in-time backtesting & factor research",
+      "hypothesis": "Filed-date EDGAR data enables lookahead-free tests of the fundamental gate and classic factors."
+    },
+    {
+      "id": "E4",
+      "theme": "ST2",
+      "pi": "PI-2",
+      "status": "done",
+      "name": "Hybrid ML screen discovery",
+      "hypothesis": "Supervised->unsupervised->RL-from-screeners can invent new, validated screens."
+    },
+    {
+      "id": "E5",
+      "theme": "ST3",
+      "pi": "PI-3",
+      "status": "done",
+      "name": "Data backbone",
+      "hypothesis": "Cassandra (operational) + DuckDB (analytical) + Kafka/Flink/CDC removes the re-download bottleneck and scales."
+    },
+    {
+      "id": "E6",
+      "theme": "ST3",
+      "pi": "PI-4",
+      "status": "done",
+      "name": "Performance & rate-limit resilience",
+      "hypothesis": "Caching, vectorisation, parallelism and centralised throttling make runs fast and limit-safe."
+    },
+    {
+      "id": "E7",
+      "theme": "ST4",
+      "pi": "PI-4",
+      "status": "done",
+      "name": "Security, integrity & documentation",
+      "hypothesis": "Signed commits + branch protection + manifest + docs make the repo trustworthy and reproducible."
+    },
+    {
+      "id": "E8",
+      "theme": "ST1",
+      "pi": "PI-5",
+      "status": "done",
+      "name": "Serving layer & consumption",
+      "hypothesis": "An API + dashboard over the warehouse turns results into a product surface."
+    },
+    {
+      "id": "E9",
+      "theme": "ST3",
+      "pi": "PI-5",
+      "status": "done",
+      "name": "Incremental analytics",
+      "hypothesis": "Partition-incremental result refresh + ML feature cache make daily runs near-instant."
+    },
+    {
+      "id": "E10",
+      "theme": "ST1",
+      "pi": "PI-6",
+      "status": "done",
+      "name": "Decision & risk layer",
+      "hypothesis": "Fusing screens into a conviction score and turning signals into constrained, risk-measured portfolios converts research into decisions."
+    },
+    {
+      "id": "E11",
+      "theme": "ST2",
+      "pi": "PI-6",
+      "status": "done",
+      "name": "Multi-market rigor",
+      "hypothesis": "A price-based point-in-time backtest and FX-normalised comparison make all 19 markets rigorously comparable, not just the US."
+    },
+    {
+      "id": "E12",
+      "theme": "ST4",
+      "pi": "PI-6",
+      "status": "done",
+      "name": "Data observability",
+      "hypothesis": "Freshness/completeness/outlier checks on the data (not just the code) catch silent data rot."
+    },
+    {
+      "id": "E13",
+      "theme": "ST2",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "Quality factor (QMJ)",
+      "hypothesis": "The AFP/QMJ quality factor (Jacob-Pradeep-Varma, IIMA 2022) \u2014 profitability/growth/safety/payout via standardised ranks \u2014 earns a valuation premium and adds a sticky, fundamentals-based signal to the ensemble across markets."
+    },
+    {
+      "id": "E14",
+      "theme": "ST2",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "Literature scouting",
+      "hypothesis": "An automated scout over open scholarly APIs, seeded from the implemented papers, keeps the platform current and surfaces research gaps (frontier themes not yet implemented) as a feed into the backlog."
+    },
+    {
+      "id": "E15",
+      "theme": "ST2",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "PEAD factor (scout-driven)",
+      "hypothesis": "Post-earnings-announcement drift \u2014 the scout's top-ranked research gap \u2014 implemented as a price-based, lookahead-free event study across markets; closes the scout->implement->covered loop and adds a drift signal to the ensemble."
+    },
+    {
+      "id": "E16",
+      "theme": "ST2",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "Liquidity factor (scout-driven)",
+      "hypothesis": "The Amihud (2002) illiquidity measure and liquidity premium \u2014 the scout's second gap \u2014 implemented from OHLC across 19 markets; yields a validated tradeability/capacity score for the ensemble and position sizing."
+    },
+    {
+      "id": "E17",
+      "theme": "ST4",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "Public data-source registry & benchmark",
+      "hypothesis": "A per-market registry of public factor libraries (AQR QMJ, Ken French, IIMA IFFM), plus a benchmark that fetches the real Ken French factors and regresses our quality portfolio on them, validates our factors against externally-published returns while keeping the platform on free/public sources."
+    },
+    {
+      "id": "E18",
+      "theme": "ST1",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "HFT-archetype tradeability screen",
+      "hypothesis": "The four HFT archetypes (market-making, stat-arb, latency, ETF-arb) can be operationalised as a Tier-1 stock picker from daily OHLC proxies (Corwin-Schultz spread, Kaufman efficiency ratio, OU half-life, autocorrelations) over a 1-week window on liquid names."
+    },
+    {
+      "id": "E19",
+      "theme": "ST1",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "Darvas volume-acquisition monitor",
+      "hypothesis": "A Darvas box (current bar excluded) overlaid with volume-acquisition signals (OBV/Chaikin A/D/CMF/up-down volume) and HFT footprint proxies detects stealth accumulation coils and volume-confirmed breakouts."
+    },
+    {
+      "id": "E20",
+      "theme": "ST1",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "Strong & accumulated watchlists",
+      "hypothesis": "Two separate ranked shortlists \u2014 fundamentally strong (QMJ quality) and being accumulated (Darvas volume acquisition) \u2014 plus their intersection, turn the platform's signals into actionable watchlists."
+    },
+    {
+      "id": "E21",
+      "theme": "ST2",
+      "pi": "PI-7",
+      "status": "done",
+      "name": "Accumulation/CMF screener + validation",
+      "hypothesis": "An accumulation + Chaikin Money Flow screen, validated point-in-time against 1-month and 6-month forward returns, is a weak short-horizon but monotone multi-month signal (6m Q5-Q1 +8% to +11%, IC ~0.07)."
+    }
   ],
   "features": [
-    {"id": "F1.1", "epic": "E1", "pi": "PI-1", "status": "done", "size": 8, "name": "US scanner (full system-integrated)", "module": "full_us_market_scan.py"},
-    {"id": "F1.2", "epic": "E1", "pi": "PI-1", "status": "done", "size": 8, "name": "India scanner", "module": "full_indian_market_scan.py"},
-    {"id": "F1.3", "epic": "E1", "pi": "PI-1", "status": "done", "size": 5, "name": "Japan/Korea/Europe scanners", "module": "full_{japan,korea,european}_market_scan.py"},
-    {"id": "F1.4", "epic": "E1", "pi": "PI-1", "status": "done", "size": 8, "name": "Industry/peer parquet dataset", "module": "build_industry_parquet.py, enrich_industries.py"},
-    {"id": "F1.5", "epic": "E1", "pi": "PI-1", "status": "done", "size": 5, "name": "Unlisted-firm enrichment (GLEIF)", "module": "unlisted_enrichment.py"},
-    {"id": "F2.1", "epic": "E2", "pi": "PI-2", "status": "done", "size": 8, "name": "Screener.in screen viability (net of cost)", "module": "screen_viability.py, apply_costs.py"},
-    {"id": "F2.2", "epic": "E2", "pi": "PI-3", "status": "done", "size": 5, "name": "DVM engine (US, EDGAR-backed)", "module": "dvm_engine.py"},
-    {"id": "F2.3", "epic": "E2", "pi": "PI-3", "status": "done", "size": 8, "name": "Global DVM technical (19 markets)", "module": "dvm_global.py"},
-    {"id": "F2.4", "epic": "E2", "pi": "PI-3", "status": "done", "size": 5, "name": "Global fundamentals sourcing", "module": "fundamentals_global.py"},
-    {"id": "F2.5", "epic": "E2", "pi": "PI-3", "status": "done", "size": 8, "name": "Global DVM composite (GGG classification)", "module": "dvm_composite.py"},
-    {"id": "F3.1", "epic": "E3", "pi": "PI-2", "status": "done", "size": 8, "name": "Point-in-time fundamentals (EDGAR, filed-date)", "module": "pit_fundamentals.py"},
-    {"id": "F3.2", "epic": "E3", "pi": "PI-2", "status": "done", "size": 8, "name": "Triple-Hit backtest (arms A/B/C)", "module": "pit_backtest.py"},
-    {"id": "F3.3", "epic": "E3", "pi": "PI-2", "status": "done", "size": 3, "name": "Net-of-cost analysis (tax+brokerage)", "module": "apply_costs.py"},
-    {"id": "F3.4", "epic": "E3", "pi": "PI-2", "status": "done", "size": 5, "name": "Factor research (Markowitz/Sharpe/Fama/FF)", "module": "factor_research.py"},
-    {"id": "F3.5", "epic": "E3", "pi": "PI-2", "status": "done", "size": 5, "name": "Cross-market ML viability", "module": "ml_viability.py"},
-    {"id": "F4.1", "epic": "E4", "pi": "PI-2", "status": "done", "size": 5, "name": "ML signal engine (Ridge, market-agnostic)", "module": "ml_signal_engine.py"},
-    {"id": "F4.2", "epic": "E4", "pi": "PI-2", "status": "done", "size": 8, "name": "Screen discovery (unsupervised + RL-from-screeners)", "module": "ml_screen_discovery.py"},
-    {"id": "F5.1", "epic": "E5", "pi": "PI-3", "status": "done", "size": 8, "name": "Cassandra OHLC cache", "module": "market_store.py"},
-    {"id": "F5.2", "epic": "E5", "pi": "PI-3", "status": "done", "size": 5, "name": "Kafka streaming work-queue", "module": "stream_pipeline.py"},
-    {"id": "F5.3", "epic": "E5", "pi": "PI-3", "status": "done", "size": 3, "name": "Flink streaming aggregation", "module": "flink_screens.py"},
-    {"id": "F5.4", "epic": "E5", "pi": "PI-3", "status": "done", "size": 8, "name": "Commit-log CDC -> Debezium -> Kafka", "module": "cdc/"},
-    {"id": "F5.5", "epic": "E5", "pi": "PI-3", "status": "done", "size": 5, "name": "DuckDB analytical warehouse", "module": "warehouse.py"},
-    {"id": "F5.6", "epic": "E5", "pi": "PI-3", "status": "done", "size": 3, "name": "Multi-market trading calendars", "module": "market_holidays.py"},
-    {"id": "F6.1", "epic": "E6", "pi": "PI-4", "status": "done", "size": 3, "name": "Cache-route all data scripts", "module": "ml_viability.py, screen_viability.py"},
-    {"id": "F6.2", "epic": "E6", "pi": "PI-4", "status": "done", "size": 5, "name": "Vectorise + parallelise dvm_global (13x)", "module": "dvm_global.py"},
-    {"id": "F6.3", "epic": "E6", "pi": "PI-4", "status": "done", "size": 3, "name": "Parallel ML walk-forward", "module": "ml_viability.py"},
-    {"id": "F6.4", "epic": "E6", "pi": "PI-4", "status": "done", "size": 3, "name": "Incremental delta OHLC fetches", "module": "market_store.py"},
-    {"id": "F6.5", "epic": "E6", "pi": "PI-4", "status": "done", "size": 5, "name": "Centralised rate-limit governance", "module": "apiclient.py"},
-    {"id": "F7.1", "epic": "E7", "pi": "PI-4", "status": "done", "size": 5, "name": "Signed commits + branch protection", "module": "SECURITY.md"},
-    {"id": "F7.2", "epic": "E7", "pi": "PI-4", "status": "done", "size": 2, "name": "Signed integrity manifest", "module": "verify_integrity.sh, CHECKSUMS.sha256"},
-    {"id": "F7.3", "epic": "E7", "pi": "PI-4", "status": "done", "size": 5, "name": "Docs, Colab, schema & architecture map", "module": "README.md, USER_GUIDE.md, SCHEMA.md, ARCHITECTURE_MAP.md, notebooks/"},
-    {"id": "F8.1", "epic": "E8", "pi": "PI-5", "status": "done", "size": 5, "name": "FastAPI serving endpoint over warehouse", "module": "serve.py"},
-    {"id": "F8.2", "epic": "E8", "pi": "PI-5", "status": "done", "size": 5, "name": "HTML results dashboard", "module": "dashboard.py"},
-    {"id": "F9.1", "epic": "E9", "pi": "PI-5", "status": "done", "size": 8, "name": "Partition-incremental result refresh", "module": "incremental.py, warehouse.py"},
-    {"id": "F9.2", "epic": "E9", "pi": "PI-5", "status": "done", "size": 5, "name": "ML feature-matrix cache", "module": "feature_cache.py, ml_viability.py"},
-    {"id": "F10.1", "epic": "E10", "pi": "PI-6", "status": "done", "size": 8, "name": "Constrained portfolio construction (min-var/max-Sharpe, position/sector caps, turnover)", "module": "portfolio.py"},
-    {"id": "F10.2", "epic": "E10", "pi": "PI-6", "status": "done", "size": 5, "name": "Risk layer (drawdown/VaR/CVaR/Sharpe/Sortino/regime)", "module": "risk.py"},
-    {"id": "F10.3", "epic": "E10", "pi": "PI-6", "status": "done", "size": 5, "name": "Meta-screen ensemble conviction score", "module": "meta_screen.py"},
-    {"id": "F10.4", "epic": "E10", "pi": "PI-6", "status": "done", "size": 5, "name": "Sector/industry rotation model", "module": "sector_rotation.py"},
-    {"id": "F10.5", "epic": "E10", "pi": "PI-6", "status": "done", "size": 3, "name": "Partition-diff alerting (env-only SMTP)", "module": "alerts.py"},
-    {"id": "F10.6", "epic": "E10", "pi": "PI-6", "status": "done", "size": 5, "name": "Unlisted-firm comparable-company valuation", "module": "unlisted_valuation.py"},
-    {"id": "F11.1", "epic": "E11", "pi": "PI-6", "status": "done", "size": 8, "name": "Global point-in-time (price-based) backtest, 18 non-US markets", "module": "pit_global.py"},
-    {"id": "F11.2", "epic": "E11", "pi": "PI-6", "status": "done", "size": 5, "name": "FX normalisation for cross-market comparison", "module": "fx.py"},
-    {"id": "F12.1", "epic": "E12", "pi": "PI-6", "status": "done", "size": 5, "name": "Data-quality observability (freshness/nulls/outliers) + CLI gate", "module": "data_quality.py"},
-    {"id": "F13.1", "epic": "E13", "pi": "PI-7", "status": "done", "size": 8, "name": "AFP/QMJ quality score (4 dimensions, standardised ranks) + LQ/QMJ portfolios", "module": "quality_factor.py"},
-    {"id": "F13.2", "epic": "E13", "pi": "PI-7", "status": "done", "size": 5, "name": "Quality price-premium test (log M/B ~ quality, Table 8) + driver breakdown", "module": "quality_factor.py"},
-    {"id": "F13.3", "epic": "E13", "pi": "PI-7", "status": "done", "size": 3, "name": "Quality as a meta-screen conviction component", "module": "meta_screen.py"},
-    {"id": "F14.1", "epic": "E14", "pi": "PI-7", "status": "done", "size": 8, "name": "Literature scout: theme-scored relevance + covered/gap classification + module mapping + report", "module": "literature_scout.py"},
-    {"id": "F14.2", "epic": "E14", "pi": "PI-7", "status": "done", "size": 5, "name": "Governed scholarly fetchers (OpenAlex/Crossref/arXiv) with fail-fast fallback", "module": "literature_scout.py, apiclient.py"},
-    {"id": "F15.1", "epic": "E15", "pi": "PI-7", "status": "done", "size": 8, "name": "PEAD event study: earnings-event detection + market-adjusted CAR drift by surprise quantile", "module": "pead_factor.py"},
-    {"id": "F15.2", "epic": "E15", "pi": "PI-7", "status": "done", "size": 3, "name": "PEAD current signal + meta-screen fusion component", "module": "pead_factor.py, meta_screen.py"},
-    {"id": "F16.1", "epic": "E16", "pi": "PI-7", "status": "done", "size": 5, "name": "Amihud ILLIQ + liquidity-premium quantile study (point-in-time, 19 markets)", "module": "liquidity_factor.py"},
-    {"id": "F16.2", "epic": "E16", "pi": "PI-7", "status": "done", "size": 3, "name": "Capacity/tradeability score + meta-screen fusion component", "module": "liquidity_factor.py, meta_screen.py"},
-    {"id": "F17.1", "epic": "E17", "pi": "PI-7", "status": "done", "size": 3, "name": "Per-market public factor-source registry (AQR/Ken French/IFFM) + paper-source mapping", "module": "data_sources.py"},
-    {"id": "F17.2", "epic": "E17", "pi": "PI-7", "status": "done", "size": 8, "name": "Fetch real Ken French factors + regress LQ quality on them (paper's test with public factors)", "module": "benchmark.py"},
-    {"id": "F18.1", "epic": "E18", "pi": "PI-7", "status": "done", "size": 8, "name": "HFT-archetype picker: 4 archetypes from daily high-low-close-volume proxies over a 1-week window", "module": "hft_selection.py"},
-    {"id": "F19.1", "epic": "E19", "pi": "PI-7", "status": "done", "size": 8, "name": "Darvas box (current bar excluded) + OBV/Chaikin A-D/CMF/up-down volume accumulation + HFT footprint; coil & breakout monitor", "module": "darvas_volume.py"},
-    {"id": "F20.1", "epic": "E20", "pi": "PI-7", "status": "done", "size": 5, "name": "Two separate watchlists (fundamentally strong via QMJ; being accumulated via Darvas volume) + intersection", "module": "watchlists.py"}
+    {
+      "id": "F1.1",
+      "epic": "E1",
+      "pi": "PI-1",
+      "status": "done",
+      "size": 8,
+      "name": "US scanner (full system-integrated)",
+      "module": "full_us_market_scan.py"
+    },
+    {
+      "id": "F1.2",
+      "epic": "E1",
+      "pi": "PI-1",
+      "status": "done",
+      "size": 8,
+      "name": "India scanner",
+      "module": "full_indian_market_scan.py"
+    },
+    {
+      "id": "F1.3",
+      "epic": "E1",
+      "pi": "PI-1",
+      "status": "done",
+      "size": 5,
+      "name": "Japan/Korea/Europe scanners",
+      "module": "full_{japan,korea,european}_market_scan.py"
+    },
+    {
+      "id": "F1.4",
+      "epic": "E1",
+      "pi": "PI-1",
+      "status": "done",
+      "size": 8,
+      "name": "Industry/peer parquet dataset",
+      "module": "build_industry_parquet.py, enrich_industries.py"
+    },
+    {
+      "id": "F1.5",
+      "epic": "E1",
+      "pi": "PI-1",
+      "status": "done",
+      "size": 5,
+      "name": "Unlisted-firm enrichment (GLEIF)",
+      "module": "unlisted_enrichment.py"
+    },
+    {
+      "id": "F2.1",
+      "epic": "E2",
+      "pi": "PI-2",
+      "status": "done",
+      "size": 8,
+      "name": "Screener.in screen viability (net of cost)",
+      "module": "screen_viability.py, apply_costs.py"
+    },
+    {
+      "id": "F2.2",
+      "epic": "E2",
+      "pi": "PI-3",
+      "status": "done",
+      "size": 5,
+      "name": "DVM engine (US, EDGAR-backed)",
+      "module": "dvm_engine.py"
+    },
+    {
+      "id": "F2.3",
+      "epic": "E2",
+      "pi": "PI-3",
+      "status": "done",
+      "size": 8,
+      "name": "Global DVM technical (19 markets)",
+      "module": "dvm_global.py"
+    },
+    {
+      "id": "F2.4",
+      "epic": "E2",
+      "pi": "PI-3",
+      "status": "done",
+      "size": 5,
+      "name": "Global fundamentals sourcing",
+      "module": "fundamentals_global.py"
+    },
+    {
+      "id": "F2.5",
+      "epic": "E2",
+      "pi": "PI-3",
+      "status": "done",
+      "size": 8,
+      "name": "Global DVM composite (GGG classification)",
+      "module": "dvm_composite.py"
+    },
+    {
+      "id": "F3.1",
+      "epic": "E3",
+      "pi": "PI-2",
+      "status": "done",
+      "size": 8,
+      "name": "Point-in-time fundamentals (EDGAR, filed-date)",
+      "module": "pit_fundamentals.py"
+    },
+    {
+      "id": "F3.2",
+      "epic": "E3",
+      "pi": "PI-2",
+      "status": "done",
+      "size": 8,
+      "name": "Triple-Hit backtest (arms A/B/C)",
+      "module": "pit_backtest.py"
+    },
+    {
+      "id": "F3.3",
+      "epic": "E3",
+      "pi": "PI-2",
+      "status": "done",
+      "size": 3,
+      "name": "Net-of-cost analysis (tax+brokerage)",
+      "module": "apply_costs.py"
+    },
+    {
+      "id": "F3.4",
+      "epic": "E3",
+      "pi": "PI-2",
+      "status": "done",
+      "size": 5,
+      "name": "Factor research (Markowitz/Sharpe/Fama/FF)",
+      "module": "factor_research.py"
+    },
+    {
+      "id": "F3.5",
+      "epic": "E3",
+      "pi": "PI-2",
+      "status": "done",
+      "size": 5,
+      "name": "Cross-market ML viability",
+      "module": "ml_viability.py"
+    },
+    {
+      "id": "F4.1",
+      "epic": "E4",
+      "pi": "PI-2",
+      "status": "done",
+      "size": 5,
+      "name": "ML signal engine (Ridge, market-agnostic)",
+      "module": "ml_signal_engine.py"
+    },
+    {
+      "id": "F4.2",
+      "epic": "E4",
+      "pi": "PI-2",
+      "status": "done",
+      "size": 8,
+      "name": "Screen discovery (unsupervised + RL-from-screeners)",
+      "module": "ml_screen_discovery.py"
+    },
+    {
+      "id": "F5.1",
+      "epic": "E5",
+      "pi": "PI-3",
+      "status": "done",
+      "size": 8,
+      "name": "Cassandra OHLC cache",
+      "module": "market_store.py"
+    },
+    {
+      "id": "F5.2",
+      "epic": "E5",
+      "pi": "PI-3",
+      "status": "done",
+      "size": 5,
+      "name": "Kafka streaming work-queue",
+      "module": "stream_pipeline.py"
+    },
+    {
+      "id": "F5.3",
+      "epic": "E5",
+      "pi": "PI-3",
+      "status": "done",
+      "size": 3,
+      "name": "Flink streaming aggregation",
+      "module": "flink_screens.py"
+    },
+    {
+      "id": "F5.4",
+      "epic": "E5",
+      "pi": "PI-3",
+      "status": "done",
+      "size": 8,
+      "name": "Commit-log CDC -> Debezium -> Kafka",
+      "module": "cdc/"
+    },
+    {
+      "id": "F5.5",
+      "epic": "E5",
+      "pi": "PI-3",
+      "status": "done",
+      "size": 5,
+      "name": "DuckDB analytical warehouse",
+      "module": "warehouse.py"
+    },
+    {
+      "id": "F5.6",
+      "epic": "E5",
+      "pi": "PI-3",
+      "status": "done",
+      "size": 3,
+      "name": "Multi-market trading calendars",
+      "module": "market_holidays.py"
+    },
+    {
+      "id": "F6.1",
+      "epic": "E6",
+      "pi": "PI-4",
+      "status": "done",
+      "size": 3,
+      "name": "Cache-route all data scripts",
+      "module": "ml_viability.py, screen_viability.py"
+    },
+    {
+      "id": "F6.2",
+      "epic": "E6",
+      "pi": "PI-4",
+      "status": "done",
+      "size": 5,
+      "name": "Vectorise + parallelise dvm_global (13x)",
+      "module": "dvm_global.py"
+    },
+    {
+      "id": "F6.3",
+      "epic": "E6",
+      "pi": "PI-4",
+      "status": "done",
+      "size": 3,
+      "name": "Parallel ML walk-forward",
+      "module": "ml_viability.py"
+    },
+    {
+      "id": "F6.4",
+      "epic": "E6",
+      "pi": "PI-4",
+      "status": "done",
+      "size": 3,
+      "name": "Incremental delta OHLC fetches",
+      "module": "market_store.py"
+    },
+    {
+      "id": "F6.5",
+      "epic": "E6",
+      "pi": "PI-4",
+      "status": "done",
+      "size": 5,
+      "name": "Centralised rate-limit governance",
+      "module": "apiclient.py"
+    },
+    {
+      "id": "F7.1",
+      "epic": "E7",
+      "pi": "PI-4",
+      "status": "done",
+      "size": 5,
+      "name": "Signed commits + branch protection",
+      "module": "SECURITY.md"
+    },
+    {
+      "id": "F7.2",
+      "epic": "E7",
+      "pi": "PI-4",
+      "status": "done",
+      "size": 2,
+      "name": "Signed integrity manifest",
+      "module": "verify_integrity.sh, CHECKSUMS.sha256"
+    },
+    {
+      "id": "F7.3",
+      "epic": "E7",
+      "pi": "PI-4",
+      "status": "done",
+      "size": 5,
+      "name": "Docs, Colab, schema & architecture map",
+      "module": "README.md, USER_GUIDE.md, SCHEMA.md, ARCHITECTURE_MAP.md, notebooks/"
+    },
+    {
+      "id": "F8.1",
+      "epic": "E8",
+      "pi": "PI-5",
+      "status": "done",
+      "size": 5,
+      "name": "FastAPI serving endpoint over warehouse",
+      "module": "serve.py"
+    },
+    {
+      "id": "F8.2",
+      "epic": "E8",
+      "pi": "PI-5",
+      "status": "done",
+      "size": 5,
+      "name": "HTML results dashboard",
+      "module": "dashboard.py"
+    },
+    {
+      "id": "F9.1",
+      "epic": "E9",
+      "pi": "PI-5",
+      "status": "done",
+      "size": 8,
+      "name": "Partition-incremental result refresh",
+      "module": "incremental.py, warehouse.py"
+    },
+    {
+      "id": "F9.2",
+      "epic": "E9",
+      "pi": "PI-5",
+      "status": "done",
+      "size": 5,
+      "name": "ML feature-matrix cache",
+      "module": "feature_cache.py, ml_viability.py"
+    },
+    {
+      "id": "F10.1",
+      "epic": "E10",
+      "pi": "PI-6",
+      "status": "done",
+      "size": 8,
+      "name": "Constrained portfolio construction (min-var/max-Sharpe, position/sector caps, turnover)",
+      "module": "portfolio.py"
+    },
+    {
+      "id": "F10.2",
+      "epic": "E10",
+      "pi": "PI-6",
+      "status": "done",
+      "size": 5,
+      "name": "Risk layer (drawdown/VaR/CVaR/Sharpe/Sortino/regime)",
+      "module": "risk.py"
+    },
+    {
+      "id": "F10.3",
+      "epic": "E10",
+      "pi": "PI-6",
+      "status": "done",
+      "size": 5,
+      "name": "Meta-screen ensemble conviction score",
+      "module": "meta_screen.py"
+    },
+    {
+      "id": "F10.4",
+      "epic": "E10",
+      "pi": "PI-6",
+      "status": "done",
+      "size": 5,
+      "name": "Sector/industry rotation model",
+      "module": "sector_rotation.py"
+    },
+    {
+      "id": "F10.5",
+      "epic": "E10",
+      "pi": "PI-6",
+      "status": "done",
+      "size": 3,
+      "name": "Partition-diff alerting (env-only SMTP)",
+      "module": "alerts.py"
+    },
+    {
+      "id": "F10.6",
+      "epic": "E10",
+      "pi": "PI-6",
+      "status": "done",
+      "size": 5,
+      "name": "Unlisted-firm comparable-company valuation",
+      "module": "unlisted_valuation.py"
+    },
+    {
+      "id": "F11.1",
+      "epic": "E11",
+      "pi": "PI-6",
+      "status": "done",
+      "size": 8,
+      "name": "Global point-in-time (price-based) backtest, 18 non-US markets",
+      "module": "pit_global.py"
+    },
+    {
+      "id": "F11.2",
+      "epic": "E11",
+      "pi": "PI-6",
+      "status": "done",
+      "size": 5,
+      "name": "FX normalisation for cross-market comparison",
+      "module": "fx.py"
+    },
+    {
+      "id": "F12.1",
+      "epic": "E12",
+      "pi": "PI-6",
+      "status": "done",
+      "size": 5,
+      "name": "Data-quality observability (freshness/nulls/outliers) + CLI gate",
+      "module": "data_quality.py"
+    },
+    {
+      "id": "F13.1",
+      "epic": "E13",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 8,
+      "name": "AFP/QMJ quality score (4 dimensions, standardised ranks) + LQ/QMJ portfolios",
+      "module": "quality_factor.py"
+    },
+    {
+      "id": "F13.2",
+      "epic": "E13",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "Quality price-premium test (log M/B ~ quality, Table 8) + driver breakdown",
+      "module": "quality_factor.py"
+    },
+    {
+      "id": "F13.3",
+      "epic": "E13",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 3,
+      "name": "Quality as a meta-screen conviction component",
+      "module": "meta_screen.py"
+    },
+    {
+      "id": "F14.1",
+      "epic": "E14",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 8,
+      "name": "Literature scout: theme-scored relevance + covered/gap classification + module mapping + report",
+      "module": "literature_scout.py"
+    },
+    {
+      "id": "F14.2",
+      "epic": "E14",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "Governed scholarly fetchers (OpenAlex/Crossref/arXiv) with fail-fast fallback",
+      "module": "literature_scout.py, apiclient.py"
+    },
+    {
+      "id": "F15.1",
+      "epic": "E15",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 8,
+      "name": "PEAD event study: earnings-event detection + market-adjusted CAR drift by surprise quantile",
+      "module": "pead_factor.py"
+    },
+    {
+      "id": "F15.2",
+      "epic": "E15",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 3,
+      "name": "PEAD current signal + meta-screen fusion component",
+      "module": "pead_factor.py, meta_screen.py"
+    },
+    {
+      "id": "F16.1",
+      "epic": "E16",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "Amihud ILLIQ + liquidity-premium quantile study (point-in-time, 19 markets)",
+      "module": "liquidity_factor.py"
+    },
+    {
+      "id": "F16.2",
+      "epic": "E16",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 3,
+      "name": "Capacity/tradeability score + meta-screen fusion component",
+      "module": "liquidity_factor.py, meta_screen.py"
+    },
+    {
+      "id": "F17.1",
+      "epic": "E17",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 3,
+      "name": "Per-market public factor-source registry (AQR/Ken French/IFFM) + paper-source mapping",
+      "module": "data_sources.py"
+    },
+    {
+      "id": "F17.2",
+      "epic": "E17",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 8,
+      "name": "Fetch real Ken French factors + regress LQ quality on them (paper's test with public factors)",
+      "module": "benchmark.py"
+    },
+    {
+      "id": "F18.1",
+      "epic": "E18",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 8,
+      "name": "HFT-archetype picker: 4 archetypes from daily high-low-close-volume proxies over a 1-week window",
+      "module": "hft_selection.py"
+    },
+    {
+      "id": "F19.1",
+      "epic": "E19",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 8,
+      "name": "Darvas box (current bar excluded) + OBV/Chaikin A-D/CMF/up-down volume accumulation + HFT footprint; coil & breakout monitor",
+      "module": "darvas_volume.py"
+    },
+    {
+      "id": "F20.1",
+      "epic": "E20",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "Two separate watchlists (fundamentally strong via QMJ; being accumulated via Darvas volume) + intersection",
+      "module": "watchlists.py"
+    },
+    {
+      "id": "F21.1",
+      "epic": "E21",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 8,
+      "name": "CMF/accumulation screener + point-in-time 1m/6m forward-return validation (quintiles, IC, monotonicity)",
+      "module": "accumulation_screener.py"
+    }
   ],
   "kpis": [
-    {"metric": "Markets covered", "value": "19"},
-    {"metric": "Tickers scored (DVM)", "value": "30,785"},
-    {"metric": "dvm_global runtime", "value": "105s -> 8.1s (13x)"},
-    {"metric": "Backtest rigor", "value": "point-in-time (no lookahead)"},
-    {"metric": "Rate-limit governance", "value": "centralised, per-source adaptive"},
-    {"metric": "Security", "value": "signed commits + branch protection + integrity PASSED"},
-    {"metric": "Documentation", "value": "18 docs + User Guide + Colab"},
-    {"metric": "Decision layer", "value": "portfolio + risk + meta-screen + rotation + alerts"},
-    {"metric": "Backtest coverage", "value": "US filed-date PIT + 18 markets price-based PIT"},
-    {"metric": "Test suite", "value": "75 unit tests, CI-gated (pytest + govern + integrity)"},
-    {"metric": "External validation", "value": "quality tilt regressed on REAL Ken French factors: −HML, +Mom (matches AFP/IIMA)"},
-    {"metric": "Academic factors", "value": "Markowitz/Sharpe/Fama-French + AFP/QMJ quality (IIMA 2022) + PEAD + Amihud liquidity"},
-    {"metric": "Research scouting", "value": "OpenAlex/Crossref/arXiv scout, seeded from 11 papers, with research-gap detection"},
-    {"metric": "Scout->implement loop", "value": "2 gaps closed: PEAD (+2.5% Q5-Q1 drift) and Amihud liquidity (capacity score validated on global megacaps)"}
+    {
+      "metric": "Markets covered",
+      "value": "19"
+    },
+    {
+      "metric": "Tickers scored (DVM)",
+      "value": "30,785"
+    },
+    {
+      "metric": "dvm_global runtime",
+      "value": "105s -> 8.1s (13x)"
+    },
+    {
+      "metric": "Backtest rigor",
+      "value": "point-in-time (no lookahead)"
+    },
+    {
+      "metric": "Rate-limit governance",
+      "value": "centralised, per-source adaptive"
+    },
+    {
+      "metric": "Security",
+      "value": "signed commits + branch protection + integrity PASSED"
+    },
+    {
+      "metric": "Documentation",
+      "value": "18 docs + User Guide + Colab"
+    },
+    {
+      "metric": "Decision layer",
+      "value": "portfolio + risk + meta-screen + rotation + alerts"
+    },
+    {
+      "metric": "Backtest coverage",
+      "value": "US filed-date PIT + 18 markets price-based PIT"
+    },
+    {
+      "metric": "Test suite",
+      "value": "78 unit tests, CI-gated (pytest + govern + integrity)"
+    },
+    {
+      "metric": "External validation",
+      "value": "quality tilt regressed on REAL Ken French factors: \u2212HML, +Mom (matches AFP/IIMA)"
+    },
+    {
+      "metric": "Academic factors",
+      "value": "Markowitz/Sharpe/Fama-French + AFP/QMJ quality (IIMA 2022) + PEAD + Amihud liquidity"
+    },
+    {
+      "metric": "Research scouting",
+      "value": "OpenAlex/Crossref/arXiv scout, seeded from 11 papers, with research-gap detection"
+    },
+    {
+      "metric": "Scout->implement loop",
+      "value": "2 gaps closed: PEAD (+2.5% Q5-Q1 drift) and Amihud liquidity (capacity score validated on global megacaps)"
+    },
+    {
+      "metric": "Accumulation/CMF validation",
+      "value": "6-month Q5-Q1 +10.8% (accum), monotonicity 1.00, IC 0.07; weak at 1-month"
+    }
   ]
 }
