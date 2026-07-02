@@ -364,5 +364,60 @@ def test_price_premium_detects_positive_quality_premium():
     assert pp["quality_coef"] > 0 and pp["quality_t"] > 2       # significant premium
 
 
+# ── literature_scout.py (global research scout) ───────────────────────────────
+def test_reconstruct_abstract_from_inverted_index():
+    from literature_scout import reconstruct_abstract
+    inv = {"Quality": [0], "factor": [1], "earns": [2], "alpha": [3]}
+    assert reconstruct_abstract(inv) == "Quality factor earns alpha"
+    assert reconstruct_abstract(None) == ""
+
+
+def test_score_paper_covered_vs_gap_classification():
+    from literature_scout import score_paper
+    covered = score_paper({"title": "Quality Minus Junk profitability factor",
+                           "year": 2019, "citations": 2000})
+    assert covered["coverage"] in ("covered", "extends")
+    assert "quality_factor.py" in covered["modules"]
+    gap = score_paper({"title": "Post-earnings-announcement drift and analyst revisions",
+                       "year": 2021, "citations": 100})
+    assert gap["coverage"] == "gap"                            # frontier theme, no module
+    assert "pead_revisions" in gap["frontier_themes"]
+    unmapped = score_paper({"title": "A study of igneous rock formation", "year": 2000})
+    assert unmapped["coverage"] == "unmapped"
+
+
+def test_score_paper_ranks_relevant_recent_cited_higher():
+    from literature_scout import score_paper
+    strong = score_paper({"title": "Momentum and value factor in the cross-section of returns",
+                          "year": 2022, "citations": 5000})
+    weak = score_paper({"title": "Momentum note", "year": 1970, "citations": 1})
+    assert strong["score"] > weak["score"]
+
+
+def test_dedup_by_title_and_doi():
+    from literature_scout import dedup
+    papers = [{"title": "Quality Minus Junk", "doi": "10.1/x"},
+              {"title": "quality minus junk", "doi": ""},        # same title, dropped
+              {"title": "Other", "doi": "10.1/x"}]              # same doi as #1, dropped
+    assert len(dedup(papers)) == 2
+
+
+def test_rank_orders_and_coverage_summary_counts():
+    from literature_scout import rank, coverage_summary, SEED_PAPERS
+    ranked = rank(SEED_PAPERS)
+    scores = [p["score"] for p in ranked]
+    assert scores == sorted(scores, reverse=True)              # descending
+    summ = coverage_summary(ranked)
+    assert summ["covered"]["quality"] >= 2                     # QMJ + Novy-Marx + IIMA etc.
+
+
+def test_strip_jats_and_report_sections():
+    from literature_scout import _strip_jats, render_report, rank, coverage_summary, SEED_PAPERS
+    assert _strip_jats("<jats:p>Hello <b>world</b></jats:p>").strip() == "Hello  world".strip()
+    ranked = rank(SEED_PAPERS)
+    md = render_report(ranked, coverage_summary(ranked), query=None)
+    assert "## Top relevant papers" in md and "## Research gaps" in md and "## Coverage summary" in md
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

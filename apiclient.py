@@ -35,6 +35,10 @@ LIMITS = {                       # source -> (min_interval_s, max_concurrency)
     "gleif":    (0.25, 4),
     "wikidata": (60.0, 1),
     "opencorporates": (0.50, 2),
+    "openalex":  (0.15, 4),          # polite pool (with mailto): generous
+    "crossref":  (0.20, 3),          # polite pool
+    "arxiv":     (3.00, 1),          # arXiv asks for <= 1 request / 3s
+    "semanticscholar": (1.10, 1),    # ~1 req/s unauthenticated
 }
 _DEFAULT = (0.50, 3)
 YF_CHUNK = 50                    # tickers per yfinance batch (small enough to avoid crumb storms)
@@ -154,8 +158,11 @@ def yf_info(ticker) -> dict:
 
 
 # ── generic HTTP (EDGAR, GLEIF, OpenCorporates, Wikidata …) ───────────────────
-def http_get(source, url, headers=None, timeout=45):
-    """Governed requests.get — treats 429 as a rate error so backoff kicks in."""
+def http_get(source, url, headers=None, timeout=45, retries=5):
+    """Governed requests.get — treats 429 as a rate error so backoff kicks in.
+    `retries` is exposed so callers that have their own fallback (e.g. the literature
+    scout, which fails over to another API) can fail fast instead of exhausting the
+    full backoff schedule on a source that is down."""
     import requests
 
     def _g():
@@ -163,7 +170,7 @@ def http_get(source, url, headers=None, timeout=45):
         if r.status_code == 429:
             raise RuntimeError("HTTP 429 rate limited")
         return r
-    return robust(source, _g)
+    return robust(source, _g, retries=retries)
 
 
 if __name__ == "__main__":

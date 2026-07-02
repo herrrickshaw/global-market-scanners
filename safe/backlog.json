@@ -16,7 +16,7 @@
     {"id": "PI-4", "name": "Hardening", "objectives": ["Performance (13x) + rate-limit governance", "Security, integrity, full docs"]},
     {"id": "PI-5", "name": "Serving & incremental analytics", "objectives": ["API/dashboard serving layer", "Partition-incremental results + ML feature cache"]},
     {"id": "PI-6", "name": "Decision layer, global rigor & observability", "objectives": ["Portfolio/risk/meta-screen/rotation/alerts decision layer", "Global point-in-time backtest + FX normalisation", "Data-quality observability"]},
-    {"id": "PI-7", "name": "Academic factor implementation", "objectives": ["AFP/QMJ quality factor (IIMA 2022) generalised to 19 markets", "Quality price-premium test + meta-screen fusion"]}
+    {"id": "PI-7", "name": "Academic factor implementation & research scouting", "objectives": ["AFP/QMJ quality factor (IIMA 2022) generalised to 19 markets", "Quality price-premium test + meta-screen fusion", "Automated global literature scout with research-gap detection"]}
   ],
   "epics": [
     {"id": "E1", "theme": "ST1", "pi": "PI-1", "status": "done", "name": "Multi-market scanner suite", "hypothesis": "One 5-stage pipeline (universe->OHLC->Darvas->fundamentals->Excel) generalises across markets."},
@@ -31,7 +31,8 @@
     {"id": "E10", "theme": "ST1", "pi": "PI-6", "status": "done", "name": "Decision & risk layer", "hypothesis": "Fusing screens into a conviction score and turning signals into constrained, risk-measured portfolios converts research into decisions."},
     {"id": "E11", "theme": "ST2", "pi": "PI-6", "status": "done", "name": "Multi-market rigor", "hypothesis": "A price-based point-in-time backtest and FX-normalised comparison make all 19 markets rigorously comparable, not just the US."},
     {"id": "E12", "theme": "ST4", "pi": "PI-6", "status": "done", "name": "Data observability", "hypothesis": "Freshness/completeness/outlier checks on the data (not just the code) catch silent data rot."},
-    {"id": "E13", "theme": "ST2", "pi": "PI-7", "status": "done", "name": "Quality factor (QMJ)", "hypothesis": "The AFP/QMJ quality factor (Jacob-Pradeep-Varma, IIMA 2022) — profitability/growth/safety/payout via standardised ranks — earns a valuation premium and adds a sticky, fundamentals-based signal to the ensemble across markets."}
+    {"id": "E13", "theme": "ST2", "pi": "PI-7", "status": "done", "name": "Quality factor (QMJ)", "hypothesis": "The AFP/QMJ quality factor (Jacob-Pradeep-Varma, IIMA 2022) — profitability/growth/safety/payout via standardised ranks — earns a valuation premium and adds a sticky, fundamentals-based signal to the ensemble across markets."},
+    {"id": "E14", "theme": "ST2", "pi": "PI-7", "status": "done", "name": "Literature scouting", "hypothesis": "An automated scout over open scholarly APIs, seeded from the implemented papers, keeps the platform current and surfaces research gaps (frontier themes not yet implemented) as a feed into the backlog."}
   ],
   "features": [
     {"id": "F1.1", "epic": "E1", "pi": "PI-1", "status": "done", "size": 8, "name": "US scanner (full system-integrated)", "module": "full_us_market_scan.py"},
@@ -80,7 +81,9 @@
     {"id": "F12.1", "epic": "E12", "pi": "PI-6", "status": "done", "size": 5, "name": "Data-quality observability (freshness/nulls/outliers) + CLI gate", "module": "data_quality.py"},
     {"id": "F13.1", "epic": "E13", "pi": "PI-7", "status": "done", "size": 8, "name": "AFP/QMJ quality score (4 dimensions, standardised ranks) + LQ/QMJ portfolios", "module": "quality_factor.py"},
     {"id": "F13.2", "epic": "E13", "pi": "PI-7", "status": "done", "size": 5, "name": "Quality price-premium test (log M/B ~ quality, Table 8) + driver breakdown", "module": "quality_factor.py"},
-    {"id": "F13.3", "epic": "E13", "pi": "PI-7", "status": "done", "size": 3, "name": "Quality as a meta-screen conviction component", "module": "meta_screen.py"}
+    {"id": "F13.3", "epic": "E13", "pi": "PI-7", "status": "done", "size": 3, "name": "Quality as a meta-screen conviction component", "module": "meta_screen.py"},
+    {"id": "F14.1", "epic": "E14", "pi": "PI-7", "status": "done", "size": 8, "name": "Literature scout: theme-scored relevance + covered/gap classification + module mapping + report", "module": "literature_scout.py"},
+    {"id": "F14.2", "epic": "E14", "pi": "PI-7", "status": "done", "size": 5, "name": "Governed scholarly fetchers (OpenAlex/Crossref/arXiv) with fail-fast fallback", "module": "literature_scout.py, apiclient.py"}
   ],
   "kpis": [
     {"metric": "Markets covered", "value": "19"},
@@ -92,7 +95,8 @@
     {"metric": "Documentation", "value": "18 docs + User Guide + Colab"},
     {"metric": "Decision layer", "value": "portfolio + risk + meta-screen + rotation + alerts"},
     {"metric": "Backtest coverage", "value": "US filed-date PIT + 18 markets price-based PIT"},
-    {"metric": "Test suite", "value": "37 unit tests, CI-gated (pytest + govern + integrity)"},
-    {"metric": "Academic factors", "value": "Markowitz/Sharpe/Fama-French (factor_research) + AFP/QMJ quality (IIMA 2022)"}
+    {"metric": "Test suite", "value": "43 unit tests, CI-gated (pytest + govern + integrity)"},
+    {"metric": "Academic factors", "value": "Markowitz/Sharpe/Fama-French (factor_research) + AFP/QMJ quality (IIMA 2022)"},
+    {"metric": "Research scouting", "value": "OpenAlex/Crossref/arXiv scout, seeded from 11 papers, with research-gap detection"}
   ]
 }
