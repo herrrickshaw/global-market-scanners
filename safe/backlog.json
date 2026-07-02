@@ -37,7 +37,8 @@
     {"id": "E16", "theme": "ST2", "pi": "PI-7", "status": "done", "name": "Liquidity factor (scout-driven)", "hypothesis": "The Amihud (2002) illiquidity measure and liquidity premium — the scout's second gap — implemented from OHLC across 19 markets; yields a validated tradeability/capacity score for the ensemble and position sizing."},
     {"id": "E17", "theme": "ST4", "pi": "PI-7", "status": "done", "name": "Public data-source registry & benchmark", "hypothesis": "A per-market registry of public factor libraries (AQR QMJ, Ken French, IIMA IFFM), plus a benchmark that fetches the real Ken French factors and regresses our quality portfolio on them, validates our factors against externally-published returns while keeping the platform on free/public sources."},
     {"id": "E18", "theme": "ST1", "pi": "PI-7", "status": "done", "name": "HFT-archetype tradeability screen", "hypothesis": "The four HFT archetypes (market-making, stat-arb, latency, ETF-arb) can be operationalised as a Tier-1 stock picker from daily OHLC proxies (Corwin-Schultz spread, Kaufman efficiency ratio, OU half-life, autocorrelations) over a 1-week window on liquid names."},
-    {"id": "E19", "theme": "ST1", "pi": "PI-7", "status": "done", "name": "Darvas volume-acquisition monitor", "hypothesis": "A Darvas box (current bar excluded) overlaid with volume-acquisition signals (OBV/Chaikin A/D/CMF/up-down volume) and HFT footprint proxies detects stealth accumulation coils and volume-confirmed breakouts."}
+    {"id": "E19", "theme": "ST1", "pi": "PI-7", "status": "done", "name": "Darvas volume-acquisition monitor", "hypothesis": "A Darvas box (current bar excluded) overlaid with volume-acquisition signals (OBV/Chaikin A/D/CMF/up-down volume) and HFT footprint proxies detects stealth accumulation coils and volume-confirmed breakouts."},
+    {"id": "E20", "theme": "ST1", "pi": "PI-7", "status": "done", "name": "Strong & accumulated watchlists", "hypothesis": "Two separate ranked shortlists — fundamentally strong (QMJ quality) and being accumulated (Darvas volume acquisition) — plus their intersection, turn the platform's signals into actionable watchlists."}
   ],
   "features": [
     {"id": "F1.1", "epic": "E1", "pi": "PI-1", "status": "done", "size": 8, "name": "US scanner (full system-integrated)", "module": "full_us_market_scan.py"},
@@ -96,7 +97,8 @@
     {"id": "F17.1", "epic": "E17", "pi": "PI-7", "status": "done", "size": 3, "name": "Per-market public factor-source registry (AQR/Ken French/IFFM) + paper-source mapping", "module": "data_sources.py"},
     {"id": "F17.2", "epic": "E17", "pi": "PI-7", "status": "done", "size": 8, "name": "Fetch real Ken French factors + regress LQ quality on them (paper's test with public factors)", "module": "benchmark.py"},
     {"id": "F18.1", "epic": "E18", "pi": "PI-7", "status": "done", "size": 8, "name": "HFT-archetype picker: 4 archetypes from daily high-low-close-volume proxies over a 1-week window", "module": "hft_selection.py"},
-    {"id": "F19.1", "epic": "E19", "pi": "PI-7", "status": "done", "size": 8, "name": "Darvas box (current bar excluded) + OBV/Chaikin A-D/CMF/up-down volume accumulation + HFT footprint; coil & breakout monitor", "module": "darvas_volume.py"}
+    {"id": "F19.1", "epic": "E19", "pi": "PI-7", "status": "done", "size": 8, "name": "Darvas box (current bar excluded) + OBV/Chaikin A-D/CMF/up-down volume accumulation + HFT footprint; coil & breakout monitor", "module": "darvas_volume.py"},
+    {"id": "F20.1", "epic": "E20", "pi": "PI-7", "status": "done", "size": 5, "name": "Two separate watchlists (fundamentally strong via QMJ; being accumulated via Darvas volume) + intersection", "module": "watchlists.py"}
   ],
   "kpis": [
     {"metric": "Markets covered", "value": "19"},
@@ -108,7 +110,7 @@
     {"metric": "Documentation", "value": "18 docs + User Guide + Colab"},
     {"metric": "Decision layer", "value": "portfolio + risk + meta-screen + rotation + alerts"},
     {"metric": "Backtest coverage", "value": "US filed-date PIT + 18 markets price-based PIT"},
-    {"metric": "Test suite", "value": "71 unit tests, CI-gated (pytest + govern + integrity)"},
+    {"metric": "Test suite", "value": "75 unit tests, CI-gated (pytest + govern + integrity)"},
     {"metric": "External validation", "value": "quality tilt regressed on REAL Ken French factors: −HML, +Mom (matches AFP/IIMA)"},
     {"metric": "Academic factors", "value": "Markowitz/Sharpe/Fama-French + AFP/QMJ quality (IIMA 2022) + PEAD + Amihud liquidity"},
     {"metric": "Research scouting", "value": "OpenAlex/Crossref/arXiv scout, seeded from 11 papers, with research-gap detection"},

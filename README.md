@@ -31,6 +31,7 @@ across 19 markets, and a Cassandra/Kafka/Flink data backbone.
 | **Data sources & benchmark** | `data_sources.py`, `benchmark.py` | Per-market public factor libraries; fetches real Ken French factors + validates our quality tilt |
 | **HFT selection** | `hft_selection.py` | 4 HFT archetypes (market-making/stat-arb/latency/ETF-arb) as a Tier-1 picker from daily OHLC |
 | **Darvas × volume** | `darvas_volume.py` | Darvas-box monitor for volume acquisition (OBV/CMF/up-down vol) + HFT footprint; coils & breakouts |
+| **Watchlists** | `watchlists.py` | Two separate ranked lists — fundamentally strong (QMJ) and being accumulated (Darvas volume) — + intersection |
 | **ML screen discovery** | `ml_screen_discovery.py` | Supervised → Unsupervised (new screens) → RL-from-screeners |
 | **DVM / Trendlyne** | `dvm_engine.py`, `dvm_global.py`, `fundamentals_global.py`, `dvm_composite.py` | Durability/Valuation/Momentum scoring + GGG classification across 19 markets |
 | **Decision layer** | `portfolio.py`, `risk.py`, `meta_screen.py`, `sector_rotation.py`, `alerts.py`, `unlisted_valuation.py` | Signals → constrained portfolios, risk/VaR, ensemble conviction, sector rotation, alerts, private-firm comps |
@@ -115,6 +116,7 @@ classification → fundamentals on breakout candidates → styled Excel export**
 - [Benchmark](BENCHMARK.md) — fetches real Ken French factors and validates our quality tilt against them (−HML, +Mom)
 - [HFT selection](HFT_SELECTION.md) — the four HFT archetypes as a Tier-1 stock picker from daily high-low-close-volume
 - [Darvas × volume](DARVAS_VOLUME.md) — Darvas-box monitor for stealth volume acquisition + HFT footprint (coils & volume-confirmed breakouts)
+- [Watchlists](WATCHLISTS.md) — separate fundamentally-strong & being-accumulated lists (+ intersection)
 
 **Decision layer & consumption**
 - [Decision layer, global rigor & observability](DECISION_LAYER.md) — portfolio / risk / meta-screen / rotation / alerts / comps + global PIT + FX + data quality + serving

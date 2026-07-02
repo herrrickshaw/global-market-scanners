@@ -694,5 +694,44 @@ def test_accumulation_score_ranks_stealth_accumulation_higher():
     assert s["accum"] > s["distrib"]                          # rising OBV/CMF/up-vol + pinned price
 
 
+# ── watchlists.py (fundamentally-strong & being-accumulated lists) ────────────
+def test_clean_key_normalises_symbols():
+    from watchlists import clean_key
+    assert clean_key("AAPL.NS") == "AAPL" and clean_key("brk-b") == "BRK-B"
+    assert clean_key("7203.T") == "7203"
+
+
+def test_strong_from_scores_filters_and_flags():
+    from watchlists import strong_from_scores
+    df = pd.DataFrame({"ticker": ["A", "B", "C"], "market": ["US"] * 3,
+                       "quality_score": [90.0, 50.0, 72.0],
+                       "roe": [25, 5, 18], "de": [0.5, 2.0, 0.8], "sector": ["x", "y", "z"]})
+    out = strong_from_scores(df, min_quality=60)
+    assert list(out["ticker"]) == ["A", "C"]                  # B (50) below floor, sorted desc
+    assert bool(out.set_index("ticker").loc["A", "strong_profile"]) is True   # roe>15 & de<1
+    assert bool(out.set_index("ticker").loc["C", "strong_profile"]) is True
+
+
+def test_accumulated_from_scan_keeps_in_box_coils():
+    from watchlists import accumulated_from_scan
+    scan = pd.DataFrame({"ticker": ["P", "Q", "R"],
+                         "state": ["in_box", "breakout", "in_box"],
+                         "accumulation": [3.0, 5.0, 0.2]})
+    out = accumulated_from_scan(scan, min_accum=0.5)
+    assert list(out["ticker"]) == ["P"]                       # Q not in_box, R below floor
+
+
+def test_intersect_strong_and_accumulated():
+    from watchlists import strong_from_scores, accumulated_from_scan, intersect
+    strong = strong_from_scores(pd.DataFrame({
+        "ticker": ["AAA", "BBB"], "market": ["US", "US"], "quality_score": [88.0, 70.0],
+        "roe": [20, 20], "de": [0.5, 0.5], "sector": ["t", "t"]}))
+    accum = accumulated_from_scan(pd.DataFrame({
+        "ticker": ["BBB", "CCC"], "state": ["in_box", "in_box"], "accumulation": [2.0, 3.0],
+        "position": [0.9, 0.5], "cmf": [0.2, 0.1]}))
+    both = intersect(strong, accum)
+    assert list(both["key"]) == ["BBB"]                       # only BBB is in both lists
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
