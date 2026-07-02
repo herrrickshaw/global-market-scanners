@@ -33,6 +33,7 @@ import os
 import sqlite3
 import sys
 import warnings
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
 import pandas as pd
@@ -132,6 +133,8 @@ def main():
     ap.add_argument("--markets", nargs="*", default=None, help="default: all with data")
     ap.add_argument("--screen", choices=list(SCREENS), default="momentum_breakout")
     ap.add_argument("--db", default="dvm_global.db")
+    ap.add_argument("--workers", type=int, default=os.cpu_count(),
+                    help="parallel market workers (CPU-bound; default = all cores)")
     args = ap.parse_args()
 
     all_mkts = sorted(os.path.basename(p).replace("cleaned_long_", "").replace(".parquet", "")
@@ -146,17 +149,22 @@ def main():
         sma50_above_200 INT, macd_bull INT, vol_ratio REAL, beta REAL)""")
 
     summary = []
-    for mkt in markets:
-        rows, hits = process_market(mkt, args.screen)
-        conn.executemany("INSERT INTO dvm_global VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            [(r["market"], r["ticker"], r["M"], r["rsi"], r["mfi"], r["adx"], r["dist_52w"],
-              int(r["above_200dma"]), int(r["golden_cross"]), int(r["sma50_above_200"]),
-              int(r["macd_bull"]), r["vol_ratio"], r["beta"]) for r in rows])
-        conn.commit()
-        avgM = round(float(np.mean([r["M"] for r in rows])), 1) if rows else 0
-        summary.append((mkt, len(rows), len(hits), avgM))
-        print(f"  {mkt}: scored {len(rows):>5} | {args.screen} hits {len(hits):>4} | avg momentum {avgM}",
-              file=sys.stderr, flush=True)
+    # markets processed in parallel across cores (CPU-bound per-ticker compute);
+    # SQLite writes stay in the main process. ~Ncores speedup.
+    with ProcessPoolExecutor(max_workers=args.workers) as ex:
+        futs = {ex.submit(process_market, m, args.screen): m for m in markets}
+        for fut in as_completed(futs):
+            mkt = futs[fut]
+            rows, hits = fut.result()
+            conn.executemany("INSERT INTO dvm_global VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                [(r["market"], r["ticker"], r["M"], r["rsi"], r["mfi"], r["adx"], r["dist_52w"],
+                  int(r["above_200dma"]), int(r["golden_cross"]), int(r["sma50_above_200"]),
+                  int(r["macd_bull"]), r["vol_ratio"], r["beta"]) for r in rows])
+            conn.commit()
+            avgM = round(float(np.mean([r["M"] for r in rows])), 1) if rows else 0
+            summary.append((mkt, len(rows), len(hits), avgM))
+            print(f"  {mkt}: scored {len(rows):>5} | {args.screen} hits {len(hits):>4} | avg momentum {avgM}",
+                  file=sys.stderr, flush=True)
 
     conn.close()
     print(f"\n=== GLOBAL DVM / TRENDLYNE SCREEN: {args.screen} ({len(markets)} markets) ===")
