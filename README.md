@@ -119,6 +119,7 @@ classification → fundamentals on breakout candidates → styled Excel export**
 - [Literature scout](SCOUT.md) — automated global research scout (OpenAlex/Crossref/arXiv) with research-gap detection
 - [PEAD factor](PEAD.md) — post-earnings-announcement drift; the scout→implement→covered loop closed
 - [Liquidity factor](LIQUIDITY.md) — Amihud illiquidity + liquidity premium; scout gap #2 closed
+- [Liquidity multi-year](LIQUIDITY.md#multi-year-test--the-premium-is-significant-liquidity_multiyearpy) — 10y Fama-MacBeth: liquidity premium +4.24%/qtr, t=2.16 (significant)
 - [Data sources](DATA_SOURCES.md) — per-market public factor libraries (AQR/Ken French/IIMA IFFM); what the quality paper names
 - [Benchmark](BENCHMARK.md) — fetches real Ken French factors and validates our quality tilt against them (−HML, +Mom)
 - [HFT selection](HFT_SELECTION.md) — the four HFT archetypes as a Tier-1 stock picker from daily high-low-close-volume

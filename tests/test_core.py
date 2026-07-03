@@ -1009,5 +1009,20 @@ def test_vcrud_list_field_helpers():
     assert vcrud.read(con, "wl", "a")["tickers"] == ["B", "C"]
 
 
+# ── liquidity_multiyear.py (Fama-MacBeth liquidity premium) ───────────────────
+def test_fama_macbeth_quintiles_detects_premium():
+    from liquidity_multiyear import fama_macbeth_quintiles
+    rng = np.random.default_rng(6)
+    rows = []
+    for d in range(20):                                          # 20 quarterly cross-sections
+        illiq = np.abs(rng.normal(1, 0.4, 60))
+        fwd = 0.05 * illiq + rng.normal(0, 0.01, 60)             # illiquid earn more
+        for i in range(60):
+            rows.append({"date": d, "ticker": f"T{i}", "illiq": illiq[i], "fwd_ret": fwd[i]})
+    res = fama_macbeth_quintiles(pd.DataFrame(rows))
+    assert res["Q5_minus_Q1%"] > 0 and res["t_stat"] > 2        # significant positive premium
+    assert res["monotonicity"] == pytest.approx(1.0)           # clean Q1<...<Q5
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))

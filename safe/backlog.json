@@ -1024,6 +1024,15 @@
       "size": 3,
       "name": "Watchlist CRUD REST endpoints (POST/GET/PUT/DELETE + history) over watchlist_store",
       "module": "serve.py"
+    },
+    {
+      "id": "F16.3",
+      "epic": "E16",
+      "pi": "PI-7",
+      "status": "done",
+      "size": 5,
+      "name": "Multi-year Fama-MacBeth liquidity-premium test (10y yfinance): Q5-Q1 +4.24%/qtr, t=2.16 SIGNIFICANT",
+      "module": "liquidity_multiyear.py"
     }
   ],
   "kpis": [
@@ -1065,7 +1074,7 @@
     },
     {
       "metric": "Test suite",
-      "value": "101 unit tests, CI-gated (pytest + govern + integrity)"
+      "value": "102 unit tests, CI-gated (pytest + govern + integrity)"
     },
     {
       "metric": "External validation",
