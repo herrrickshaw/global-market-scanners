@@ -112,6 +112,7 @@ const splitRow = (s) => s.trim().replace(/^\|/, "").replace(/\|$/, "").split("|"
 const children = [];
 let title = null;
 let olInstance = 0;   // distinct numbering instance per ordered-list block (restarts each list)
+let ulInstance = 0;   // distinct instance per bullet-list block (so Word renders every first bullet)
 
 // ---- block state machine ------------------------------------------------
 let i = 0;
@@ -208,8 +209,10 @@ while (i < lines.length) {
     continue;
   }
 
-  // unordered list — folds wrapped continuation lines into each bullet
+  // unordered list — own instance per block (Word renders every first bullet);
+  // folds wrapped continuation lines into each bullet
   if (/^\s*[-*]\s+/.test(line)) {
+    ulInstance += 1;
     while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
       const lvl = Math.min(2, Math.floor(indentOf(lines[i]) / 2));
       const wbuf = [lines[i].replace(/^\s*[-*]\s+/, "")]; i++;
@@ -218,7 +221,7 @@ while (i < lines.length) {
              !/^\s*\$\$/.test(lines[i])) {
         wbuf.push(lines[i].trimStart()); i++;
       }
-      children.push(new Paragraph({ numbering: { reference: "ul", level: lvl },
+      children.push(new Paragraph({ numbering: { reference: "ul", level: lvl, instance: ulInstance },
         children: inline(wbuf.join(" ")) }));
     }
     continue;
@@ -227,7 +230,7 @@ while (i < lines.length) {
   // ordered list — one instance per block (restarts at 1); folds continuation
   // lines, nested bullets, and per-item display equations into the same list.
   if (/^\d+\.\s+/.test(line) && indentOf(line) === 0) {
-    olInstance += 1;
+    olInstance += 1; ulInstance += 1;   // ulInstance for any nested bullets in this block
     while (i < lines.length) {
       const L = lines[i];
       if (/^\s*$/.test(L)) {                    // blank: continue list only if more item content follows
@@ -244,7 +247,7 @@ while (i < lines.length) {
         const c = L.trimStart();
         if (/^\$\$/.test(c)) { const r = parseDisplayMathAt(i); children.push(r.para); i = r.next; continue; }
         if (/^[-*]\s+/.test(c)) {
-          children.push(new Paragraph({ numbering: { reference: "ul", level: 1 },
+          children.push(new Paragraph({ numbering: { reference: "ul", level: 1, instance: ulInstance },
             children: inline(c.replace(/^[-*]\s+/, "")) }));
           i++; continue;
         }
