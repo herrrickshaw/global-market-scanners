@@ -53,3 +53,5 @@ pead*.csv
 # vCRUD store (user data, not source)
 watchlist_store.db
 watchlist_store.db-journal
+*.docx
+*.pdf
