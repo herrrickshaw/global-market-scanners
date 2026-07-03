@@ -55,3 +55,6 @@ watchlist_store.db
 watchlist_store.db-journal
 *.docx
 *.pdf
+*.pptx
+slide-*.jpg
+node_modules/
