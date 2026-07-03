@@ -70,9 +70,9 @@ G14 (Information and Market Efficiency); C58 (Financial Econometrics).
 |---|---|---|
 | A/D | Accumulation/Distribution line (Chaikin) | §3.7 |
 | API | Application Programming Interface | §2.1 |
-| AR | Abnormal Return (return minus benchmark) | §3.5 |
+| AR | Abnormal Return (return minus benchmark) | §3.4 |
 | CAPM | Capital Asset Pricing Model | §3.3 |
-| CAR | Cumulative Abnormal Return | §3.5 |
+| CAR | Cumulative Abnormal Return | §3.4 |
 | CEF | Closed-End Fund | §4.6 |
 | CI *(context: engineering)* | Continuous Integration | §3.1 |
 | CLI | Command-Line Interface | §3.1 |
@@ -103,7 +103,7 @@ G14 (Information and Market Efficiency); C58 (Financial Econometrics).
 | OHLC(V) | Open, High, Low, Close (, Volume) daily bar | §2.1 |
 | OLS | Ordinary Least Squares | §3.2 |
 | OU | Ornstein–Uhlenbeck (mean-reverting) process | §3.7 |
-| PEAD | Post-Earnings-Announcement Drift | §3.5 |
+| PEAD | Post-Earnings-Announcement Drift | §3.4 |
 | PIT | Point-In-Time (no look-ahead) | §3.1 |
 | QMJ | Quality-Minus-Junk factor (Asness–Frazzini–Pedersen) | §3.3 |
 | RF | Risk-Free rate | §3.3 |
@@ -112,7 +112,7 @@ G14 (Information and Market Efficiency); C58 (Financial Econometrics).
 | SEC | (U.S.) Securities and Exchange Commission | §2.1 |
 | SHA-256 | Secure Hash Algorithm, 256-bit | §6 |
 | SMB | Small-Minus-Big (size factor) | §3.3 |
-| SUE | Standardised Unexpected Earnings | §3.5 |
+| SUE | Standardised Unexpected Earnings | §3.4 |
 | TOGAF | The Open Group Architecture Framework | §6 |
 | USD | United States Dollar (numéraire) | §2.3 |
 | XBRL | eXtensible Business Reporting Language | §2.1 |
@@ -373,9 +373,7 @@ motivated by the low-risk anomaly (Frazzini & Pedersen, 2014).
    where a positive $b$ means the market *pays up* for quality. We also report which single
    dimension dominates (correlation of each dimension with $\log(M/B)$).
 
-### 3.4 (reserved)
-
-### 3.5 Post-earnings-announcement drift (PEAD), step by step
+### 3.4 Post-earnings-announcement drift (PEAD), step by step
 
 PEAD is the tendency of prices to keep drifting in the direction of an earnings surprise for
 weeks after the announcement (Bernard & Thomas, 1989, 1990). Our study has two variants that
@@ -397,19 +395,19 @@ differ *only* in how the event is dated — which is the whole point.
    consensus we do not have), and test whether the *sign* of the surprise predicts the *sign
    and size* of the subsequent CAR.
 5. **Liquidity-conditioning test (H3).** Compute the IC between an illiquidity measure
-   (Amihud, 2002; §3.5 below) and the post-event drift, *conditional on* an earnings event.
+   (Amihud, 2002; defined in the box below) and the post-event drift, *conditional on* an earnings event.
    The prediction (Chordia et al., 2009) is that drift is larger where liquidity is thinner.
 6. **Cross-country decomposition.** Repeat the conditioning test market by market rather than
    pooling, so that a strong effect in one market and a null in another are not averaged into
    a muddy middle.
 
-**Amihud illiquidity (Amihud, 2002), used above and in §3.5-liquidity.** For asset $i$ over a window,
+**Amihud illiquidity (Amihud, 2002), used above and in §3.5.** For asset $i$ over a window,
 $$ \mathrm{ILLIQ}_i = \Big\langle \frac{|r_{i,t}|}{P_{i,t}\,V_{i,t}} \Big\rangle_t
    \;=\; \text{average daily } \frac{|\text{return}|}{\text{dollar volume}}, $$
 the average absolute return produced *per unit of dollar volume* — i.e. price impact. High
 ILLIQ = illiquid. We also map ILLIQ to a 0–100 "capacity" score for readability.
 
-### 3.5-liquidity. Liquidity premium via ten-year Fama–MacBeth, step by step
+### 3.5 Liquidity premium via ten-year Fama–MacBeth, step by step
 
 1. **Assemble a panel.** Fetch **10 years** of daily data for a broad U.S. universe (D1,
    dedicated fetch). Split the timeline into non-overlapping quarterly windows.
