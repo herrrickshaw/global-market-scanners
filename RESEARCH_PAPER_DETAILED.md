@@ -147,12 +147,14 @@ G14 (Information and Market Efficiency); C58 (Financial Econometrics).
 ### 1.1 Motivation: the replication crisis in empirical asset pricing
 
 Modern empirical asset pricing has catalogued hundreds of "anomalies" — cross-sectional
-patterns in average returns that a risk model does not explain. A large fraction of these
-fail to replicate out-of-sample, shrink drastically after publication, or disappear once
-transaction costs, look-ahead bias, and multiple-testing corrections are imposed. The
-literature's own diagnosis is that much of the "factor zoo" is an artefact of *measurement
-freedom*: enough researcher degrees of freedom (universe choice, winsorisation, event
-dating, horizon selection) will manufacture significance from noise.
+patterns in average returns that a risk model does not explain (Cochrane, 2011). A large
+fraction of these fail to replicate out-of-sample (Hou, Xue & Zhang, 2020), shrink
+drastically after publication as arbitrageurs trade them away (McLean & Pontiff, 2016), or
+lose significance once multiple-testing corrections are imposed (Harvey, Liu & Zhu, 2016).
+The literature's own diagnosis is that much of the "factor zoo" (Cochrane, 2011) is an
+artefact of *measurement freedom*: enough researcher degrees of freedom (universe choice,
+winsorisation, event dating, horizon selection) will manufacture significance from noise
+(Harvey, Liu & Zhu, 2016).
 
 This paper inverts the usual objective. We do **not** search for a new anomaly. We ask a
 narrower, more answerable question:
@@ -173,17 +175,19 @@ We evaluate four pre-stated hypotheses, each tied to an established prediction i
 literature:
 
 - **H1 (Quality).** A portfolio long high-quality and short low-quality firms carries the
-  Asness–Frazzini–Pedersen "signature": a *negative* loading on the value factor (quality is
-  expensive, not cheap) and a *positive* loading on momentum.
-- **H2 (Accumulation).** A volume-based accumulation signal (on-balance volume / Chaikin
-  money flow) predicts multi-month forward returns monotonically, even if it is weak at a
-  one-month horizon.
-- **H3 (Drift & liquidity conditioning).** Post-earnings-announcement drift exists and is
-  *stronger in less liquid / less efficient markets* (the Chordia–Sadka prediction); and its
-  measured strength is sensitive to how precisely the earnings event is dated.
-- **H4 (Liquidity premium).** Illiquid stocks earn a positive forward-return premium
-  (Amihud–Mendelson), detectable given a sufficiently long sample even if a single short
-  cross-section is under-powered.
+  Asness, Frazzini & Pedersen (2019) "signature": a *negative* loading on the value factor
+  (quality is expensive, not cheap) and a *positive* loading on momentum (Jegadeesh &
+  Titman, 1993).
+- **H2 (Accumulation).** A volume-based accumulation signal (on-balance volume, Granville,
+  1963; Chaikin money flow) predicts multi-month forward returns monotonically, even if it is
+  weak at a one-month horizon.
+- **H3 (Drift & liquidity conditioning).** Post-earnings-announcement drift exists (Bernard &
+  Thomas, 1989, 1990) and is *stronger in less liquid / less efficient markets* (Chordia et
+  al., 2009); and its measured strength is sensitive to how precisely the earnings event is
+  dated.
+- **H4 (Liquidity premium).** Illiquid stocks earn a positive forward-return premium (Amihud
+  & Mendelson, 1986; Amihud, 2002), detectable given a sufficiently long sample even if a
+  single short cross-section is under-powered.
 
 ### 1.3 Contributions
 
@@ -326,9 +330,10 @@ buckets' mean forward returns. A value of $+1.00$ means returns rise strictly wi
 across every bucket — the property a *tradeable* factor needs, because it survives coarse
 bucketing and is not driven by one extreme tail.
 
-**(e) Fama–MacBeth (FM) two-pass regression** (used for the liquidity premium, §3.5). For each
-period $t$, run a cross-sectional regression of forward return on the signal to obtain a slope
-$\lambda_t$ (the period-$t$ premium). Then average across the $n$ periods and test:
+**(e) Fama–MacBeth (FM) two-pass regression** (Fama & MacBeth, 1973; used for the liquidity
+premium, §3.5). For each period $t$, run a cross-sectional regression of forward return on the
+signal to obtain a slope $\lambda_t$ (the period-$t$ premium). Then average across the $n$
+periods and test:
 $$ \bar{\lambda} = \frac{1}{n}\sum_{t} \lambda_t, \qquad
    t\text{-stat} = \frac{\bar{\lambda}}{\mathrm{s.e.}(\lambda_t)/\sqrt{n}}. $$
 FM is the standard remedy for cross-sectional correlation: it treats each period's premium as
@@ -337,8 +342,10 @@ stock-days. This is precisely why a longer sample (more periods) buys statistica
 
 ### 3.3 Quality (Quality-Minus-Junk), step by step
 
-We implement the Asness–Frazzini–Pedersen (2019) quality factor, in the form adapted for the
-Indian market by Jacob, Pradeep & Varma (2022), and generalise it to the markets present.
+We implement the Asness, Frazzini & Pedersen (2019) quality factor, in the form adapted for
+the Indian market by Jacob, Pradeep & Varma (2022), and generalise it to the markets present.
+The profitability dimension follows Novy-Marx (2013) and the safety/low-leverage dimension is
+motivated by the low-risk anomaly (Frazzini & Pedersen, 2014).
 
 1. **Four quality dimensions.** For each firm compute proxies for
    (i) **profitability** (e.g. ROE, ROA, margins),
@@ -356,7 +363,8 @@ Indian market by Jacob, Pradeep & Varma (2022), and generalise it to the markets
      high-quality and short low-quality within size groups, so the factor is approximately
      size-neutral.
 5. **Factor-signature test (H1).** Regress the portfolio's excess return on the *real* Kenneth
-   French Carhart factors (market, SMB, HML, momentum) by calendar-time OLS:
+   French Carhart factors — market and SMB/HML (Fama & French, 1993) plus momentum (Carhart,
+   1997; Jegadeesh & Titman, 1993) — by calendar-time OLS:
    $$ R^{\text{port}}_t - RF_t = \alpha + \beta_{\text{mkt}}\,\text{MKT}_t + \beta_{\text{SMB}}\,\text{SMB}_t + \beta_{\text{HML}}\,\text{HML}_t + \beta_{\text{Mom}}\,\text{Mom}_t + \varepsilon_t. $$
    The signs and significance of $\beta_{\text{HML}}$ and $\beta_{\text{Mom}}$ test whether our
    quality construct has the published DNA.
@@ -370,8 +378,8 @@ Indian market by Jacob, Pradeep & Varma (2022), and generalise it to the markets
 ### 3.5 Post-earnings-announcement drift (PEAD), step by step
 
 PEAD is the tendency of prices to keep drifting in the direction of an earnings surprise for
-weeks after the announcement. Our study has two variants that differ *only* in how the event
-is dated — which is the whole point.
+weeks after the announcement (Bernard & Thomas, 1989, 1990). Our study has two variants that
+differ *only* in how the event is dated — which is the whole point.
 
 1. **Define the event.** Two dating schemes:
    - **Proxy dating:** flag a day as an "earnings event" when volume spikes far above its
@@ -385,16 +393,17 @@ is dated — which is the whole point.
    abnormal return $\text{CAR}_{i} = \sum_{t \in \text{window}} \text{AR}_{i,t}$.
 4. **Sign by the surprise.** Approximate the earnings surprise by the announcement-window
    return/volume reaction (a reduced-form proxy for standardised unexpected earnings, SUE,
-   which requires an analyst consensus we do not have), and test whether the *sign* of the
-   surprise predicts the *sign and size* of the subsequent CAR.
-5. **Liquidity-conditioning test (H3).** Compute the IC between an illiquidity measure (§3.5
-   below) and the post-event drift, *conditional on* an earnings event. The prediction
-   (Chordia et al., 2009) is that drift is larger where liquidity is thinner.
+   the classic PEAD sorting variable of Bernard & Thomas (1989), which requires an analyst
+   consensus we do not have), and test whether the *sign* of the surprise predicts the *sign
+   and size* of the subsequent CAR.
+5. **Liquidity-conditioning test (H3).** Compute the IC between an illiquidity measure
+   (Amihud, 2002; §3.5 below) and the post-event drift, *conditional on* an earnings event.
+   The prediction (Chordia et al., 2009) is that drift is larger where liquidity is thinner.
 6. **Cross-country decomposition.** Repeat the conditioning test market by market rather than
    pooling, so that a strong effect in one market and a null in another are not averaged into
    a muddy middle.
 
-**Amihud illiquidity, used above and in §3.5-liquidity.** For asset $i$ over a window,
+**Amihud illiquidity (Amihud, 2002), used above and in §3.5-liquidity.** For asset $i$ over a window,
 $$ \mathrm{ILLIQ}_i = \Big\langle \frac{|r_{i,t}|}{P_{i,t}\,V_{i,t}} \Big\rangle_t
    \;=\; \text{average daily } \frac{|\text{return}|}{\text{dollar volume}}, $$
 the average absolute return produced *per unit of dollar volume* — i.e. price impact. High
@@ -434,9 +443,9 @@ reflects it.
 
 Implemented and tested, but secondary to H1–H4:
 
-- **Microstructure (Tier-1):** Corwin–Schultz high-low bid-ask-spread estimator; Kaufman
-  efficiency ratio (ER = net move ÷ summed absolute moves, a "trendiness" measure);
-  Ornstein–Uhlenbeck (OU) mean-reversion half-life; return autocorrelations. These feed four
+- **Microstructure (Tier-1):** the Corwin & Schultz (2012) high-low bid-ask-spread estimator;
+  the Kaufman (1995) efficiency ratio (ER = net move ÷ summed absolute moves, a "trendiness"
+  measure); Ornstein–Uhlenbeck (OU) mean-reversion half-life; return autocorrelations. These feed four
   **HFT-archetype** screens (market-making, latency/trend, mean-reversion, momentum-ignition
   proxies) and a **Darvas-box** volume-acquisition monitor that flags price consolidation
   ("boxes") accompanied by rising OBV/CMF — the current bar is *excluded* from box formation so
@@ -444,9 +453,9 @@ Implemented and tested, but secondary to H1–H4:
 - **Seasonality:** turn-of-the-month, day-of-week (estimable from one year); monthly and
   Halloween effects require multi-year data and are *withheld* rather than reported
   under-powered.
-- **Crowding / peer-network:** co-movement crowding and peer lead-lag (Cohen–Frazzini
-  economic links).
-- **News sentiment:** Loughran–McDonald finance-specific lexicon over headlines.
+- **Crowding / peer-network:** co-movement crowding and peer lead-lag via economic links
+  (Cohen & Frazzini, 2008).
+- **News sentiment:** the Loughran & McDonald (2011) finance-specific lexicon over headlines.
 - **Options-implied & ESG:** implied-volatility level/skew and ESG risk — implemented, but see
   caveat C5.
 
@@ -469,8 +478,9 @@ Against the real Kenneth French Carhart factors, the long-only quality portfolio
 The cross-sectional price-premium regression gives a **positive** quality coefficient
 (+0.058), dominated by the **profitability** dimension (correlation +0.48 with $\log(M/B)$).
 
-**Inference.** The construct reproduces the published Asness–Frazzini–Pedersen signature: a
-negative value loading and positive momentum loading. H1 is supported. The price premium is
+**Inference.** The construct reproduces the published signature of Asness, Frazzini & Pedersen
+(2019) and Jacob, Pradeep & Varma (2022): a negative value loading and positive momentum
+loading. H1 is supported. The price premium is
 positive but weaker than the source paper's 26-year panel — expected, because our
 fundamentals are a single snapshot (C3), so the valuation regression sees one cross-section
 rather than a quarter-century of within-firm variation. The qualitative DNA survives even
@@ -501,9 +511,9 @@ horizon reveals it.
 
 Announcement-day volume rises to ~3.8× the pre-event average under the proxy but only ~1.6×
 on the *true* filing date — evidence the proxy is contaminated by non-earnings volume events.
-Cross-country, the Chordia–Sadka prediction (drift stronger where liquidity is thin) holds in
-**8 of 12 markets**, strongest in **Brazil (+0.24)** and ≈ 0 in the efficient **United States
-(+0.01)**.
+Cross-country, the prediction of Chordia et al. (2009) that drift is stronger where liquidity is
+thin holds in **8 of 12 markets**, strongest in **Brazil (+0.24)** and ≈ 0 in the efficient
+**United States (+0.01)**.
 
 **Inference.** Two measurement defects were masking a real effect. First, *event dating*: the
 volume-spike proxy fires on mergers, index reconstitutions, and macro shocks as well as
@@ -528,11 +538,11 @@ The dedicated **10-year Fama–MacBeth** test (199 U.S. names, 35 quarterly cros
 
 **$Q_5-Q_1 = +4.24\%$ per quarter, $t = 2.16$ ($|t|>2$), average IC +0.055.**
 
-**Inference.** The one-year result was *under-powered, not wrong*. Because Fama–MacBeth's
-effective sample is the number of periods, a single year offers only a handful of quarterly
-cross-sections — far too few to distinguish a +4% premium from zero. A decade supplies 35
-cross-sections and the premium becomes statistically significant, with the sign and rough
-magnitude the Amihud–Mendelson theory predicts. H4 is supported. Note the premium is not
+**Inference.** The one-year result was *under-powered, not wrong*. Because the Fama & MacBeth
+(1973) effective sample is the number of periods, a single year offers only a handful of
+quarterly cross-sections — far too few to distinguish a +4% premium from zero. A decade
+supplies 35 cross-sections and the premium becomes statistically significant, with the sign
+and rough magnitude that the theory of Amihud & Mendelson (1986) and Amihud (2002) predicts. H4 is supported. Note the premium is not
 perfectly monotone across the middle quintiles ($Q_3>Q_2$, $Q_4<Q_3$) — the signal lives
 mostly in the extreme illiquid quintile $Q_5$, consistent with illiquidity being a tail
 phenomenon.
@@ -678,6 +688,8 @@ make quality tests point-in-time everywhere. (ii) Extend real-date event dating 
 U.S. (e.g. regulatory filing feeds for Brazil, India). (iii) Add point-in-time index
 constituents to eliminate survivorship. (iv) Re-run every spread net of the cost model as the
 headline, not a robustness check. (v) Reproduce QMJ on India's deep history to close C4.
+(vi) Combine the signals in a machine-learning cross-section (Gu, Kelly & Xiu, 2020) under the
+same point-in-time protocol, treating the tested factors as inputs rather than competitors.
 
 ---
 
@@ -781,8 +793,11 @@ Python 3 with `pandas`, `numpy`, `scipy`/`statsmodels` (OLS, t-tests), `yfinance
   Accounting Studies.
 - Bernard, V., & Thomas, J. (1989, 1990). *Post-earnings-announcement drift.* Journal of
   Accounting Research / Journal of Accounting and Economics.
+- Carhart, M. M. (1997). *On persistence in mutual fund performance.* Journal of Finance.
 - Chordia, T., Goyal, A., Sadka, G., Sadka, R., & Shivakumar, L. (2009). *Liquidity and the
   post-earnings-announcement drift.* Financial Analysts Journal.
+- Cochrane, J. H. (2011). *Presidential address: discount rates.* Journal of Finance.
+  [the "factor zoo"]
 - Cohen, L., & Frazzini, A. (2008). *Economic links and predictable returns.* Journal of
   Finance.
 - Corwin, S. A., & Schultz, P. (2012). *A simple way to estimate bid-ask spreads from daily
@@ -793,8 +808,12 @@ Python 3 with `pandas`, `numpy`, `scipy`/`statsmodels` (OLS, t-tests), `yfinance
   Journal of Political Economy.
 - Frazzini, A., & Pedersen, L. H. (2014). *Betting against beta.* Journal of Financial
   Economics.
+- Granville, J. E. (1963). *Granville's New Key to Stock Market Profits* (on-balance volume).
 - Gu, S., Kelly, B., & Xiu, D. (2020). *Empirical asset pricing via machine learning.* Review
   of Financial Studies.
+- Harvey, C. R., Liu, Y., & Zhu, H. (2016). *…and the cross-section of expected returns.*
+  Review of Financial Studies. [multiple-testing / the factor zoo]
+- Hou, K., Xue, C., & Zhang, L. (2020). *Replicating anomalies.* Review of Financial Studies.
 - Jacob, J., Pradeep, K. P., & Varma, J. R. (2022). *Performance of the quality factor in the
   Indian equity market.* IIMA Working Paper 2022-11-01.
 - Jegadeesh, N., & Titman, S. (1993). *Returns to buying winners and selling losers.* Journal
@@ -803,6 +822,8 @@ Python 3 with `pandas`, `numpy`, `scipy`/`statsmodels` (OLS, t-tests), `yfinance
 - Loughran, T., & McDonald, B. (2011). *When is a liability not a liability? Textual analysis,
   dictionaries, and 10-Ks.* Journal of Finance.
 - Markowitz, H. (1952). *Portfolio selection.* Journal of Finance.
+- McLean, R. D., & Pontiff, J. (2016). *Does academic research destroy stock return
+  predictability?* Journal of Finance.
 - Novy-Marx, R. (2013). *The other side of value: the gross profitability premium.* Journal of
   Financial Economics.
 - Sharpe, W. F. (1964). *Capital asset prices: a theory of market equilibrium under conditions

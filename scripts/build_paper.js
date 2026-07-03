@@ -73,7 +73,7 @@ const doc = new Document({
 
       // ---- 1 ----
       H("1. Introduction", HeadingLevel.HEADING_1),
-      P("Empirical asset pricing is plagued by a replication crisis: many published anomalies fail out of sample or under more careful measurement. Our contribution is not a new anomaly but a reproducible apparatus — every signal is a small, unit-tested pure function; every result is regenerable from committed code under continuous integration; and the platform is governed (TOGAF architecture checks), planned (SAFe backlog), and integrity-verified (SHA-256 manifest, signed commits)."),
+      P("Empirical asset pricing is plagued by a replication crisis: many published anomalies fail out of sample (Hou, Xue & Zhang, 2020), decay after publication (McLean & Pontiff, 2016), or lose significance under multiple-testing corrections and more careful measurement (Harvey, Liu & Zhu, 2016). Our contribution is not a new anomaly but a reproducible apparatus — every signal is a small, unit-tested pure function; every result is regenerable from committed code under continuous integration; and the platform is governed (TOGAF architecture checks), planned (SAFe backlog), and integrity-verified (SHA-256 manifest, signed commits)."),
       P("Three contributions: (1) an open, tested platform spanning quality, momentum, value, low-risk, liquidity, PEAD, seasonality, crowding, sentiment, options-implied and ESG signals, plus a decision layer and a versioned write surface; (2) cross-market evidence under one protocol, including a per-country decomposition of PEAD's liquidity conditioning and a multi-year liquidity-premium test; and (3) a methodological thesis — that measurement quality dominates data quantity."),
 
       // ---- 2 ----
@@ -146,17 +146,23 @@ const doc = new Document({
           "Amihud, Y., & Mendelson, H. (1986). Asset pricing and the bid-ask spread. JFE.",
           "Asness, C., Frazzini, A., & Pedersen, L. (2019). Quality minus junk. Review of Accounting Studies.",
           "Bernard, V., & Thomas, J. (1989/1990). Post-earnings-announcement drift.",
+          "Carhart, M. (1997). On persistence in mutual fund performance. Journal of Finance.",
           "Chordia, T., Goyal, A., Sadka, G., Sadka, R., & Shivakumar, L. (2009). Liquidity and PEAD.",
+          "Cochrane, J. (2011). Presidential address: discount rates (the factor zoo). Journal of Finance.",
           "Cohen, L., & Frazzini, A. (2008). Economic links and predictable returns. Journal of Finance.",
           "Corwin, S., & Schultz, P. (2012). A high-low spread estimator. Journal of Finance.",
           "Fama, E., & French, K. (1992, 1993, 2015). Cross-section; three- and five-factor models.",
           "Fama, E., & MacBeth, J. (1973). Risk, return, and equilibrium. JPE.",
           "Frazzini, A., & Pedersen, L. (2014). Betting against beta. JFE.",
+          "Granville, J. (1963). New Key to Stock Market Profits (on-balance volume).",
           "Gu, S., Kelly, B., & Xiu, D. (2020). Empirical asset pricing via machine learning. RFS.",
+          "Harvey, C., Liu, Y., & Zhu, H. (2016). ...and the cross-section of expected returns. RFS.",
+          "Hou, K., Xue, C., & Zhang, L. (2020). Replicating anomalies. RFS.",
           "Jacob, J., Pradeep, K.P., & Varma, J. (2022). Performance of quality factor in Indian equity market. IIMA W.P. 2022-11-01.",
           "Jegadeesh, N., & Titman, S. (1993). Returns to buying winners and selling losers. Journal of Finance.",
           "Loughran, T., & McDonald, B. (2011). When is a liability not a liability? Textual analysis. Journal of Finance.",
           "Markowitz, H. (1952). Portfolio selection. Journal of Finance.",
+          "McLean, R. D., & Pontiff, J. (2016). Does academic research destroy stock return predictability? Journal of Finance.",
           "Novy-Marx, R. (2013). The other side of value: the gross profitability premium. JFE.",
           "Sharpe, W. (1964). Capital asset prices. Journal of Finance."].map(r=> li(r,"refs")),
       H("Applied and practitioner literature consulted (local corpus)", HeadingLevel.HEADING_1),
