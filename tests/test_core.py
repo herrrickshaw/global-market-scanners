@@ -1128,11 +1128,17 @@ def _cvm_fixture():
     bpa = cols + (
         "00.0/0001;2023-12-31;1;P;9512;DF;REAL;MIL;ULTIMO;;2023-12-31;1;Ativo Total;900000;S\n"
         "00.0/0001;2023-12-31;2;P;9512;DF;REAL;MIL;ULTIMO;;2023-12-31;1;Ativo Total;900000;S\n")
+    # BPP with BOTH an industrial-style 2.03 provisions decoy AND the real equity line;
+    # parse_equity must pick the "Patrimonio Liquido" line by description.
     bpp = cols + (
-        "00.0/0001;2023-12-31;1;P;9512;DF;REAL;MIL;ULTIMO;;2023-12-31;2.03;Patrimonio;400000;S\n"
-        "00.0/0001;2023-12-31;2;P;9512;DF;REAL;MIL;ULTIMO;;2023-12-31;2.03;Patrimonio;400000;S\n")
+        "00.0/0001;2023-12-31;1;P;9512;DF;REAL;MIL;ULTIMO;;2023-12-31;2.03;Patrimonio Liquido;400000;S\n"
+        "00.0/0001;2023-12-31;2;P;9512;DF;REAL;MIL;ULTIMO;;2023-12-31;2.03;Patrimonio Liquido;400000;S\n")
+    # a bank-style BPP: equity sits at 2.07, while 2.03 is Provisoes (decoy)
+    bank = cols + (
+        "11.1/0001;2023-12-31;1;BANK;1023;DF;REAL;MIL;ULTIMO;;2023-12-31;2.03;Provisoes;22000;S\n"
+        "11.1/0001;2023-12-31;1;BANK;1023;DF;REAL;MIL;ULTIMO;;2023-12-31;2.07;Patrimonio Liquido Consolidado;170000;S\n")
     enc = lambda s: s.encode("latin-1")
-    return enc(hdr), enc(dre), enc(bpa), enc(bpp)
+    return enc(hdr), enc(dre), enc(bpa), enc(bpp), enc(bank)
 
 
 def test_cvm_parse_header_filing_date():
@@ -1145,7 +1151,7 @@ def test_cvm_parse_header_filing_date():
 
 def test_cvm_parse_statement_scales_and_filters_period():
     import brazil_cvm as cvm
-    _, dre, _, _ = _cvm_fixture()
+    _, dre, _, _, _ = _cvm_fixture()
     st = cvm.parse_statement(dre, cvm.ACCOUNTS["DRE"])
     # MIL scale -> x1000; current-period only (prior 2022 row ignored)
     assert st[("9512", "2023-12-31", "1")]["net_income"] == 100000 * 1000
@@ -1153,13 +1159,23 @@ def test_cvm_parse_statement_scales_and_filters_period():
     assert st[("9512", "2023-12-31", "1")]["revenue"] == 500000 * 1000
 
 
+def test_cvm_parse_equity_handles_both_taxonomies():
+    import brazil_cvm as cvm
+    _, _, _, bpp, bank = _cvm_fixture()
+    ind = cvm.parse_equity(bpp)
+    assert ind[("9512", "2023-12-31", "1")]["equity"] == 400000 * 1000    # industrial 2.03
+    fin = cvm.parse_equity(bank)
+    # picks 2.07 Patrimonio Liquido (170000), NOT 2.03 Provisoes (22000) — the bank fix
+    assert fin[("1023", "2023-12-31", "1")]["equity"] == 170000 * 1000
+
+
 def test_cvm_build_panel_keeps_versions_and_roe():
     import brazil_cvm as cvm
-    hdr, dre, bpa, bpp = _cvm_fixture()
+    hdr, dre, bpa, bpp, _ = _cvm_fixture()
     panel = cvm.build_panel(cvm.parse_header(hdr),
                             [cvm.parse_statement(dre, cvm.ACCOUNTS["DRE"]),
                              cvm.parse_statement(bpa, cvm.ACCOUNTS["BPA"]),
-                             cvm.parse_statement(bpp, cvm.ACCOUNTS["BPP"])])
+                             cvm.parse_equity(bpp)])
     assert len(panel) == 2                                   # both versions kept (PIT)
     v2 = [r for r in panel if r["version"] == "2"][0]
     assert v2["net_income"] == 200000 * 1000 and v2["equity"] == 400000 * 1000
@@ -1169,11 +1185,11 @@ def test_cvm_build_panel_keeps_versions_and_roe():
 def test_cvm_panel_is_point_in_time_via_pit_panel():
     import brazil_cvm as cvm
     import pit_panel as pit
-    hdr, dre, bpa, bpp = _cvm_fixture()
+    hdr, dre, bpa, bpp, _ = _cvm_fixture()
     panel = cvm.build_panel(cvm.parse_header(hdr),
                             [cvm.parse_statement(dre, cvm.ACCOUNTS["DRE"]),
                              cvm.parse_statement(bpa, cvm.ACCOUNTS["BPA"]),
-                             cvm.parse_statement(bpp, cvm.ACCOUNTS["BPP"])])
+                             cvm.parse_equity(bpp)])
     # on 2024-04-01 only v1 (filed 03-15) is known -> NI 100k*1000
     early = pit.as_of(panel, "2024-04-01", symbol_col="cd_cvm", filed_col="filed_date")
     assert early["9512"]["net_income"] == 100000 * 1000
@@ -1187,6 +1203,46 @@ def test_cvm_plausible_roe_guard():
     assert cvm.plausible_roe(0.20) is True
     assert cvm.plausible_roe(1.52) is False      # bank under wrong taxonomy
     assert cvm.plausible_roe(None) is False
+
+
+# ── remediation roadmap: Brazil point-in-time quality test (L1 pay-off) ────────
+def test_bq_to_tickers_zero_pad_and_validity():
+    import brazil_quality as bq
+    m = bq.to_tickers({"009512": 0.30, "4170": 0.20, "999999": 0.5})   # padded + bare + unknown
+    assert m == {"PETR4.SA": 0.30, "VALE3.SA": 0.20}                   # unknown code dropped
+    m2 = bq.to_tickers({"4170": 0.2}, valid_tickers={"OTHER.SA"})      # ticker not in universe
+    assert m2 == {}
+
+
+def test_bq_quality_asof_filters_and_pit():
+    import brazil_quality as bq
+    panel = [
+        {"cd_cvm": "4170", "filed_date": "2024-03-01", "roe": 0.20},
+        {"cd_cvm": "4170", "filed_date": "2025-03-01", "roe": 0.25},   # future vs asof
+        {"cd_cvm": "1023", "filed_date": "2024-02-01", "roe": 1.52},   # implausible -> dropped
+    ]
+    q = bq.quality_asof(panel, "2024-06-30")
+    assert q == {"4170": 0.20}                                         # PIT + plausible only
+
+
+def test_bq_forward_returns():
+    import pandas as pd
+    import brazil_quality as bq
+    idx = pd.to_datetime(["2025-06-26", "2025-09-26", "2025-12-26"])
+    close = pd.DataFrame({"A.SA": [100.0, 110.0, 120.0], "B.SA": [50.0, 40.0, 45.0]}, index=idx)
+    fwd = bq.forward_returns(close, "2025-06-26", horizon_days=1)      # one step -> 2025-09-26
+    assert fwd["A.SA"] == pytest.approx(0.10)
+    assert fwd["B.SA"] == pytest.approx(-0.20)
+
+
+def test_bq_quality_quintiles_monotone():
+    import brazil_quality as bq
+    quality = {f"T{i}": float(i) for i in range(1, 11)}               # 10 names, quality 1..10
+    fwd = {f"T{i}": 0.01 * i for i in range(1, 11)}                   # return rises with quality
+    res = bq.quality_quintiles(quality, fwd, q=5)
+    assert res["n"] == 10
+    assert res["Q5_minus_Q1%"] > 0 and res["IC"] > 0.9               # strong positive relation
+    assert res["monotonicity"] == pytest.approx(1.0)
 
 
 if __name__ == "__main__":

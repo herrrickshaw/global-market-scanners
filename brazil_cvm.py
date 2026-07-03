@@ -37,6 +37,8 @@ from __future__ import annotations
 import csv
 import io
 import os
+import re
+import unicodedata
 import zipfile
 from datetime import date, datetime
 
@@ -46,11 +48,21 @@ ENC = "latin-1"                       # CVM files are ISO-8859-1
 
 # CVM standard account codes (CD_CONTA) -> our metric name, per statement.
 # Consolidated ("con") preferred; we fall back to individual ("ind").
+# Income (3.11) and assets (1) share codes across sectors. EQUITY is the exception:
+# industrials carry Patrimônio Líquido at 2.03, but banks/insurers (financial
+# taxonomy) put it at 2.07 — so equity is matched by DESCRIPTION (parse_equity),
+# not a fixed code, which handles both.
 ACCOUNTS = {
     "DRE": {"3.01": "revenue", "3.11": "net_income"},   # Receita; Lucro/Prejuízo do Período
     "BPA": {"1": "assets"},                              # Ativo Total
-    "BPP": {"2.03": "equity"},                           # Patrimônio Líquido
 }
+_EQUITY_DEPTH2 = re.compile(r"^2\.\d+$")                 # top-level passivo line, e.g. 2.03 / 2.07
+
+
+def _norm(s: str) -> str:
+    """Lowercase, accent-stripped — so 'Patrimônio Líquido' -> 'patrimonio liquido'."""
+    s = unicodedata.normalize("NFKD", s or "")
+    return "".join(c for c in s if not unicodedata.combining(c)).lower().strip()
 
 
 def _d(s):
@@ -121,6 +133,27 @@ def parse_statement(data, wanted: dict) -> dict:
     return out
 
 
+def parse_equity(data) -> dict:
+    """Equity per (CD_CVM, DT_REFER, VERSAO): the top-level (depth-2) BPP account
+    whose description is 'Patrimônio Líquido…'. This matches 2.03 for industrials
+    AND 2.07 for the financial sector, fixing the bank ROE bug without needing to
+    know a company's sector in advance."""
+    out: dict = {}
+    for r in _reader(data):
+        if r.get("DT_FIM_EXERC", "").strip() != r.get("DT_REFER", "").strip():
+            continue
+        if not _EQUITY_DEPTH2.match(r.get("CD_CONTA", "").strip()):
+            continue
+        if not _norm(r.get("DS_CONTA", "")).startswith("patrimonio liquido"):
+            continue
+        val = _num(r.get("VL_CONTA"))
+        if val is None:
+            continue
+        key = (r["CD_CVM"].strip(), r["DT_REFER"].strip(), r["VERSAO"].strip())
+        out[key] = {"equity": val * _scale(r.get("ESCALA_MOEDA", ""))}
+    return out
+
+
 def build_panel(header: dict, statements: list) -> list:
     """Merge header + statement dicts into a filed-date panel.
 
@@ -178,12 +211,15 @@ def filed_panel(year: int, doc: str = "DFP", prefer: str = "con",
     members = fetch_zip(year, doc, cache_dir)
     header = parse_header(members[f"{pfx}_cia_aberta_{year}.csv"])
     statements = []
-    for stmt, wanted in ACCOUNTS.items():
-        name_con = f"{pfx}_cia_aberta_{stmt}_{prefer}_{year}.csv"
-        name_ind = f"{pfx}_cia_aberta_{stmt}_ind_{year}.csv"
-        data = members.get(name_con) or members.get(name_ind)
+    for stmt, wanted in ACCOUNTS.items():                       # DRE, BPA (code-based)
+        data = (members.get(f"{pfx}_cia_aberta_{stmt}_{prefer}_{year}.csv")
+                or members.get(f"{pfx}_cia_aberta_{stmt}_ind_{year}.csv"))
         if data is not None:
             statements.append(parse_statement(data, wanted))
+    bpp = (members.get(f"{pfx}_cia_aberta_BPP_{prefer}_{year}.csv")             # equity by desc
+           or members.get(f"{pfx}_cia_aberta_BPP_ind_{year}.csv"))
+    if bpp is not None:
+        statements.append(parse_equity(bpp))
     return build_panel(header, statements)
 
 
