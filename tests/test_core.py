@@ -1108,5 +1108,86 @@ def test_filing_source_registry():
     assert cov["with_filing_dates"] >= 12 and "US" in cov["covered"]
 
 
+# ── remediation roadmap: Brazil CVM filed-date fetcher (L1/L2/L3) ──────────────
+def _cvm_fixture():
+    """Tiny in-memory CVM-format fixture: one company, two filing versions.
+    v1 filed 2024-03-15 (NI 100), v2 restated filed 2024-05-20 (NI 200).
+    All monetary values in 'MIL' (thousands). Includes a prior-period DRE row
+    that must be ignored (DT_FIM_EXERC != DT_REFER)."""
+    hdr = ("CNPJ_CIA;DT_REFER;VERSAO;DENOM_CIA;CD_CVM;CATEG_DOC;ID_DOC;DT_RECEB;LINK_DOC\n"
+           "00.0/0001;2023-12-31;1;PETRO TESTE;9512;DFP;1;2024-03-15;http://x\n"
+           "00.0/0001;2023-12-31;2;PETRO TESTE;9512;DFP;2;2024-05-20;http://x\n")
+    cols = ("CNPJ_CIA;DT_REFER;VERSAO;DENOM_CIA;CD_CVM;GRUPO;MOEDA;ESCALA_MOEDA;"
+            "ORDEM_EXERC;DT_INI_EXERC;DT_FIM_EXERC;CD_CONTA;DS_CONTA;VL_CONTA;ST\n")
+    dre = cols + (
+        "00.0/0001;2023-12-31;1;P;9512;DF;REAL;MIL;ULTIMO;2023-01-01;2023-12-31;3.01;Receita;500000;S\n"
+        "00.0/0001;2023-12-31;1;P;9512;DF;REAL;MIL;ULTIMO;2023-01-01;2023-12-31;3.11;Lucro;100000;S\n"
+        "00.0/0001;2023-12-31;1;P;9512;DF;REAL;MIL;PENULT;2022-01-01;2022-12-31;3.11;Lucro;90000;S\n"
+        "00.0/0001;2023-12-31;2;P;9512;DF;REAL;MIL;ULTIMO;2023-01-01;2023-12-31;3.01;Receita;500000;S\n"
+        "00.0/0001;2023-12-31;2;P;9512;DF;REAL;MIL;ULTIMO;2023-01-01;2023-12-31;3.11;Lucro;200000;S\n")
+    bpa = cols + (
+        "00.0/0001;2023-12-31;1;P;9512;DF;REAL;MIL;ULTIMO;;2023-12-31;1;Ativo Total;900000;S\n"
+        "00.0/0001;2023-12-31;2;P;9512;DF;REAL;MIL;ULTIMO;;2023-12-31;1;Ativo Total;900000;S\n")
+    bpp = cols + (
+        "00.0/0001;2023-12-31;1;P;9512;DF;REAL;MIL;ULTIMO;;2023-12-31;2.03;Patrimonio;400000;S\n"
+        "00.0/0001;2023-12-31;2;P;9512;DF;REAL;MIL;ULTIMO;;2023-12-31;2.03;Patrimonio;400000;S\n")
+    enc = lambda s: s.encode("latin-1")
+    return enc(hdr), enc(dre), enc(bpa), enc(bpp)
+
+
+def test_cvm_parse_header_filing_date():
+    import brazil_cvm as cvm
+    hdr, *_ = _cvm_fixture()
+    h = cvm.parse_header(hdr)
+    assert h[("9512", "2023-12-31", "1")]["filed_date"] == "2024-03-15"
+    assert h[("9512", "2023-12-31", "2")]["filed_date"] == "2024-05-20"   # restatement
+
+
+def test_cvm_parse_statement_scales_and_filters_period():
+    import brazil_cvm as cvm
+    _, dre, _, _ = _cvm_fixture()
+    st = cvm.parse_statement(dre, cvm.ACCOUNTS["DRE"])
+    # MIL scale -> x1000; current-period only (prior 2022 row ignored)
+    assert st[("9512", "2023-12-31", "1")]["net_income"] == 100000 * 1000
+    assert st[("9512", "2023-12-31", "2")]["net_income"] == 200000 * 1000
+    assert st[("9512", "2023-12-31", "1")]["revenue"] == 500000 * 1000
+
+
+def test_cvm_build_panel_keeps_versions_and_roe():
+    import brazil_cvm as cvm
+    hdr, dre, bpa, bpp = _cvm_fixture()
+    panel = cvm.build_panel(cvm.parse_header(hdr),
+                            [cvm.parse_statement(dre, cvm.ACCOUNTS["DRE"]),
+                             cvm.parse_statement(bpa, cvm.ACCOUNTS["BPA"]),
+                             cvm.parse_statement(bpp, cvm.ACCOUNTS["BPP"])])
+    assert len(panel) == 2                                   # both versions kept (PIT)
+    v2 = [r for r in panel if r["version"] == "2"][0]
+    assert v2["net_income"] == 200000 * 1000 and v2["equity"] == 400000 * 1000
+    assert v2["roe"] == pytest.approx((200000 * 1000) / (400000 * 1000))  # 0.5
+
+
+def test_cvm_panel_is_point_in_time_via_pit_panel():
+    import brazil_cvm as cvm
+    import pit_panel as pit
+    hdr, dre, bpa, bpp = _cvm_fixture()
+    panel = cvm.build_panel(cvm.parse_header(hdr),
+                            [cvm.parse_statement(dre, cvm.ACCOUNTS["DRE"]),
+                             cvm.parse_statement(bpa, cvm.ACCOUNTS["BPA"]),
+                             cvm.parse_statement(bpp, cvm.ACCOUNTS["BPP"])])
+    # on 2024-04-01 only v1 (filed 03-15) is known -> NI 100k*1000
+    early = pit.as_of(panel, "2024-04-01", symbol_col="cd_cvm", filed_col="filed_date")
+    assert early["9512"]["net_income"] == 100000 * 1000
+    # by 2024-06-30 the restatement (filed 05-20) is known -> NI 200k*1000
+    late = pit.as_of(panel, "2024-06-30", symbol_col="cd_cvm", filed_col="filed_date")
+    assert late["9512"]["net_income"] == 200000 * 1000
+
+
+def test_cvm_plausible_roe_guard():
+    import brazil_cvm as cvm
+    assert cvm.plausible_roe(0.20) is True
+    assert cvm.plausible_roe(1.52) is False      # bank under wrong taxonomy
+    assert cvm.plausible_roe(None) is False
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
