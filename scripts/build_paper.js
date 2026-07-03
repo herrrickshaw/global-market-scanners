@@ -24,7 +24,7 @@ function table(rows, widths) {
 }
 
 const doc = new Document({
-  creator:"Global Market Scanners", title:"A Reproducible Multi-Market Equity-Factor Platform",
+  creator:"Umashankar Triplicane Dwarakanathan", title:"A Reproducible Multi-Market Equity-Factor Platform",
   styles:{ default:{document:{run:{font:"Arial",size:21}}},
     paragraphStyles:[
       {id:"Heading1",name:"Heading 1",basedOn:"Normal",next:"Normal",quickFormat:true,
@@ -48,6 +48,8 @@ const doc = new Document({
         children:[new TextRun({text:"A Reproducible Multi-Market Equity-Factor Platform",bold:true,size:40,color:"1F3864"})]}),
       new Paragraph({alignment:AlignmentType.CENTER, spacing:{after:300},
         children:[new TextRun({text:"Construction, Cross-Sectional Evidence, and the Primacy of Measurement",italics:true,size:26,color:"2E5090"})]}),
+      new Paragraph({alignment:AlignmentType.CENTER, spacing:{after:20}, children:[new TextRun({text:"Umashankar Triplicane Dwarakanathan",bold:true,size:24,color:"1F3864"})]}),
+      new Paragraph({alignment:AlignmentType.CENTER, spacing:{after:300}, children:[new TextRun({text:"Independent Researcher",size:20,color:"666666"})]}),
       new Paragraph({alignment:AlignmentType.CENTER, spacing:{after:60}, children:[new TextRun({text:"Global Market Scanners project — Working Paper v1.0",size:22})]}),
       new Paragraph({alignment:AlignmentType.CENTER, spacing:{after:60}, children:[new TextRun({text:"Generated 3 July 2026 · commit-signed · CI-verified (102 tests)",size:18,color:"666666"})]}),
       new Paragraph({alignment:AlignmentType.CENTER, spacing:{after:400}, children:[new TextRun({text:"Not investment advice — research only",size:16,italics:true,color:"888888"})]}),
@@ -157,6 +159,21 @@ const doc = new Document({
           "Markowitz, H. (1952). Portfolio selection. Journal of Finance.",
           "Novy-Marx, R. (2013). The other side of value: the gross profitability premium. JFE.",
           "Sharpe, W. (1964). Capital asset prices. Journal of Finance."].map(r=> li(r,"refs")),
+      H("Applied and practitioner literature consulted (local corpus)", HeadingLevel.HEADING_1),
+      new Paragraph({spacing:{after:160}, children:[new TextRun({text:"Applied backtesting and machine-learning studies reviewed while building the platform. These informed the emphasis on out-of-sample discipline, measurement care, and the factor-plus-ML framing; they are not the source of any specific reported statistic.",italics:true,size:20,color:"555555"})]}),
+      ...["Preet, S., Gulati, A., Gupta, A., & Aggarwal, A. Backtesting the Magic Formula on Indian stock markets: an analysis of the Magic Formula strategy. Dept. of Commerce, SGGSCC, University of Delhi (SSRN 3945468).",
+          "Dhanus, S., & Amutha, G. (2025). Back-testing Super Trend in the 15-minute time frame among the top 5 contributors of Nifty 50 stocks. IJARCMSS 8(2-II), 10-14.",
+          "Backtesting Brilliance: leveraging analytics for comparing buy-&-hold vs. active strategies. Journal of Informatics Education and Research 4(3), 2024.",
+          "Kargarzadeh, A. Developing and backtesting a trading strategy using large language models, macroeconomic and technical indicators. Dept. of Mathematics, Imperial College London.",
+          "Liu, B. (2024). Analysis of market efficiency in main stock markets using the Kalman filter as an approach. Stern School of Business, New York University (arXiv 2404.16449).",
+          "Palomar, D. P. Backtesting portfolios (MAFS5310, Portfolio Optimization with R). HKUST.",
+          "Schumann, E. (2018). Backtesting (SSRN 3374195).",
+          "Comprehensive analysis of machine and deep learning models for stock forecasting. IJACSA 16(8), 2025.",
+          "Toichatturat, N. (2025). Stock-market forecasting with a deep-learning approach: generative adversarial networks (GANs). SET Research Scholarship Paper 2024/2025, Thammasat University.",
+          "Miao, Y. A deep-learning approach for stock-market prediction (CS230). Stanford University.",
+          "Fister, D., Mun, J. C., Jagric, V., & Jagric, T. (2019). Deep learning for stock-market trading: a superior trading strategy? Neural Network World 29(1), 011.",
+          "Machine learning and deep learning approaches for stock-market prediction: a comprehensive study. IJIRTM 9(3), 2025.",
+          "Deep learning in the stock market - a systematic survey. Artificial Intelligence Review, 2022 (s10462-022-10226-0)."].map(r=> li(r,"refs")),
     ]
   }]
 });

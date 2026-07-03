@@ -25,6 +25,9 @@ s.addText("Construction, Cross-Sectional Evidence, and the Primacy of Measuremen
 s.addShape(p.ShapeType.line,{x:0.75,y:4.7,w:3.2,h:0,line:{color:AMBER,width:2.5}});
 s.addText([{text:"19 markets",options:{color:WHITE}},{text:"  ·  ~40 modules  ·  102 CI-gated tests  ·  commit-signed",options:{color:ICE}}],
   {x:0.72,y:4.95,w:11.5,h:0.4,fontFace:BF,fontSize:15,bold:true});
+s.addText([{text:"Umashankar Triplicane Dwarakanathan",options:{bold:true,color:WHITE}},
+  {text:"   ·   Independent Researcher",options:{color:ICE}}],
+  {x:0.72,y:5.75,w:11.5,h:0.4,fontFace:BF,fontSize:16});
 s.addText("Working Paper v1.0 · 3 July 2026 · research only, not investment advice",{x:0.72,y:6.6,w:11.5,h:0.35,fontFace:BF,fontSize:12,color:MUTE});
 
 // 2 — THE QUESTION
