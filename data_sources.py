@@ -67,6 +67,43 @@ RAW_SOURCES = {
                      "note": "the IIMA paper's raw data source — NOT public"},
 }
 
+# ── remediation L1/L2/L3: primary regulatory FILING systems per market ─────────
+# These carry legally-timestamped filing dates, so they enable BOTH point-in-time
+# fundamentals (L1) and real earnings-event dates (L2/L3), the way SEC EDGAR does
+# for the US. `has_filing_dates` marks feeds that expose the publication date.
+REGULATORY_FILINGS = {
+    "US": {"system": "SEC EDGAR", "url": "https://www.sec.gov/edgar",
+           "forms": "10-K/10-Q/8-K", "has_filing_dates": True, "api": True,
+           "note": "already wired in pit_fundamentals.py / earnings_liquidity.py"},
+    "IN": {"system": "MCA21 + BSE/NSE corporate announcements", "forms": "annual report / results",
+           "url": "https://www.mca.gov.in", "has_filing_dates": True, "api": False},
+    "BR": {"system": "CVM (Comissão de Valores Mobiliários)", "forms": "ITR/DFP",
+           "url": "https://dados.cvm.gov.br", "has_filing_dates": True, "api": True},
+    "JP": {"system": "EDINET (FSA Japan)", "forms": "yūkashōken hōkokusho",
+           "url": "https://disclosure.edinet-fsa.go.jp", "has_filing_dates": True, "api": True},
+    "KR": {"system": "DART (FSS Korea)", "forms": "annual/quarterly reports",
+           "url": "https://dart.fss.or.kr", "has_filing_dates": True, "api": True},
+    "UK": {"system": "Companies House / National Storage Mechanism (ESEF)", "forms": "annual report",
+           "url": "https://find-and-update.company-information.service.gov.uk",
+           "has_filing_dates": True, "api": True},
+    "DE": {"system": "Bundesanzeiger / national OAM (ESEF)", "forms": "Geschäftsbericht",
+           "url": "https://www.bundesanzeiger.de", "has_filing_dates": True, "api": False},
+    "EU": {"system": "ESEF filings via national OAMs", "forms": "annual financial report",
+           "url": "https://www.esma.europa.eu", "has_filing_dates": True, "api": False},
+    "AU": {"system": "ASX announcements", "forms": "annual/half-year reports",
+           "url": "https://www.asx.com.au", "has_filing_dates": True, "api": False},
+    "HK": {"system": "HKEXnews", "forms": "annual/interim reports",
+           "url": "https://www.hkexnews.hk", "has_filing_dates": True, "api": False},
+    "SG": {"system": "SGX company disclosures", "forms": "annual reports/SGXNET",
+           "url": "https://www.sgx.com", "has_filing_dates": True, "api": False},
+    "ZA": {"system": "JSE SENS", "forms": "results announcements",
+           "url": "https://www.jse.co.za", "has_filing_dates": True, "api": False},
+    "TW": {"system": "TWSE MOPS", "forms": "annual/quarterly reports",
+           "url": "https://mops.twse.com.tw", "has_filing_dates": True, "api": True},
+    "CN": {"system": "CNINFO (CSRC)", "forms": "annual/quarterly reports",
+           "url": "http://www.cninfo.com.cn", "has_filing_dates": True, "api": False},
+}
+
 # Kenneth French regional bucket each market falls in.
 KEN_FRENCH_REGION = {
     "US": "North America", "CA": "North America",
@@ -124,6 +161,21 @@ def raw_sources(market: str) -> list:
     if m == "IN":
         out = ["nsepython", "yfinance"]
     return out
+
+
+def filing_source(market: str) -> dict | None:
+    """Remediation L1/L2/L3: the primary regulatory filing system for a market —
+    the feed that carries legally-timestamped filing dates, enabling point-in-time
+    fundamentals and real earnings-event dating. None if not yet registered."""
+    return REGULATORY_FILINGS.get(market.upper())
+
+
+def filing_coverage() -> dict:
+    """How many platform markets have a registered filing system with filing dates."""
+    have = [m for m in PLATFORM_MARKETS if REGULATORY_FILINGS.get(m, {}).get("has_filing_dates")]
+    api = [m for m in have if REGULATORY_FILINGS[m].get("api")]
+    return {"markets": len(PLATFORM_MARKETS), "with_filing_dates": len(have),
+            "with_api": len(api), "api_markets": api, "covered": have}
 
 
 def for_market(market: str) -> dict:

@@ -1024,5 +1024,89 @@ def test_fama_macbeth_quintiles_detects_premium():
     assert res["monotonicity"] == pytest.approx(1.0)           # clean Q1<...<Q5
 
 
+# ── remediation roadmap: net_of_cost (L8) ─────────────────────────────────────
+def test_net_of_cost_break_even_and_survival():
+    import net_of_cost as nc
+    # round trip = 2*(commission+half_spread+impact); no impact when illiq/size 0
+    assert nc.round_trip_cost(0.0005, 0.0005) == pytest.approx(0.002)
+    # break-even = gross/turnover; net = gross - turnover*rt
+    assert nc.break_even_cost(0.04, turnover=1.0) == pytest.approx(0.04)
+    assert nc.break_even_cost(0.10, turnover=0.5) == pytest.approx(0.20)
+    assert nc.net_spread(0.04, 0.002, turnover=1.0) == pytest.approx(0.038)
+    # a strong spread survives US cost; a tiny spread at high turnover does not
+    assert nc.survives_costs(0.0424, "US", turnover=1.0) is True
+    assert nc.survives_costs(0.0005, "US", turnover=5.0) is False
+    # Amihud impact is monotone in size and clipped to [0, 0.5]
+    assert nc.amihud_impact(1e-8, 1e6) > nc.amihud_impact(1e-8, 1e5)
+    assert nc.amihud_impact(10.0, 1e9) == 0.5
+
+
+def test_net_of_cost_report_keys():
+    import net_of_cost as nc
+    r = nc.net_report(0.0424, "BR", turnover=1.0)
+    assert r["market"] == "BR" and r["round_trip_cost"] == pytest.approx(0.0035)
+    assert r["net_spread"] == pytest.approx(0.0424 - 0.0035)
+    assert set(r) >= {"gross_spread", "net_spread", "break_even_cost", "survives"}
+
+
+# ── remediation roadmap: survivorship (L4) ────────────────────────────────────
+def test_point_in_time_universe_no_survivorship_no_lookahead():
+    import survivorship as sv
+    mem = [
+        {"symbol": "ALIVE", "add_date": "2015-01-01", "remove_date": None},
+        {"symbol": "DIED",  "add_date": "2015-01-01", "remove_date": "2020-03-15"},
+        {"symbol": "FUTURE", "add_date": "2024-01-01", "remove_date": None},
+    ]
+    assert sv.point_in_time_universe(mem, "2019-01-01") == ["ALIVE", "DIED"]   # dead name kept
+    assert sv.point_in_time_universe(mem, "2021-01-01") == ["ALIVE"]          # after delist, gone
+    assert "FUTURE" not in sv.point_in_time_universe(mem, "2019-01-01")       # no look-ahead
+    assert sv.point_in_time_universe(mem, "2025-01-01") == ["ALIVE", "FUTURE"]
+
+
+def test_apply_delisting_returns_and_gap():
+    import survivorship as sv
+    idx = pd.to_datetime(["2020-03-14", "2020-03-15", "2020-03-16"])
+    df = pd.DataFrame({"DIED": [0.01, 0.02, 0.03], "ALIVE": [0.0, 0.01, 0.0]}, index=idx)
+    out = sv.apply_delisting_returns(df, {"DIED": {"date": "2020-03-15", "final_return": -0.60}})
+    assert out.loc[idx[1], "DIED"] == pytest.approx(-0.60)   # delisting loss booked
+    assert np.isnan(out.loc[idx[2], "DIED"])                 # gone afterwards
+    assert out["ALIVE"].tolist() == [0.0, 0.01, 0.0]         # survivor untouched
+    # survivors-only mean (0.02) overstates full-universe mean (incl. -0.60)
+    assert sv.survivorship_gap(-0.29, 0.02) == pytest.approx(0.31)
+
+
+# ── remediation roadmap: pit_panel (L1 filed-date, L5 history gate) ────────────
+def test_pit_panel_as_of_no_lookahead():
+    import pit_panel as pit
+    panel = [
+        {"symbol": "AAA", "filed_date": "2024-02-12", "roe": 0.14},
+        {"symbol": "AAA", "filed_date": "2025-02-11", "roe": 0.18},   # future vs asof
+        {"symbol": "AAA", "filed_date": "2023-02-10", "roe": 0.10},
+    ]
+    picked = pit.as_of(panel, "2024-06-30")
+    assert picked["AAA"]["roe"] == 0.14                              # latest <= asof, not 0.18
+    assert pit.leaks_lookahead(panel, "2024-06-30") is True
+    assert pit.leaks_lookahead(panel, "2025-12-31") is False
+    assert pit.is_point_in_time(panel) is True
+
+
+def test_pit_panel_history_gate():
+    import pit_panel as pit
+    assert pit.min_history_ok(756, 3.0) is True                      # exactly 3y
+    assert pit.min_history_ok(500, 3.0) is False
+    g = pit.gate_markets({"US": 2520, "BR": 900, "JP": 240}, min_years=3.0)
+    assert g["report"] == ["BR", "US"] and g["withhold"] == ["JP"]
+
+
+# ── remediation roadmap: per-market filing registry (L1/L2/L3) ─────────────────
+def test_filing_source_registry():
+    import data_sources as ds
+    assert ds.filing_source("BR")["system"].startswith("CVM")
+    assert ds.filing_source("JP")["has_filing_dates"] is True
+    assert ds.filing_source("ZZ") is None                            # unknown market
+    cov = ds.filing_coverage()
+    assert cov["with_filing_dates"] >= 12 and "US" in cov["covered"]
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
