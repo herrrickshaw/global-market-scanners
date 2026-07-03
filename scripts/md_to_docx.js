@@ -66,23 +66,41 @@ const CONTENT_W = 9360;                 // US Letter, 1" margins (12240 - 2*1440
 const src = fs.readFileSync(inPath, "utf8").replace(/\r\n/g, "\n");
 const lines = src.split("\n");
 
-// ---- inline parser: string -> TextRun[] ---------------------------------
+// ---- inline parser: string -> TextRun[] (stateful scanner, handles nesting) ----
+// Toggles bold (**), italic (*), code (`); pulls $math$ out and prettifies it.
+// A stateful scan (not a single-pass regex) correctly handles **bold with *italic*
+// inside** and gracefully tolerates markers that span folded line-wraps.
 function inline(text, base = {}) {
   const runs = [];
-  // tokenise on **bold**, *italic*, `code`, $math$ (strip $)
-  const re = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\$[^$]+\$)/g;
-  let last = 0, m;
-  const push = (t, opt) => { if (t) runs.push(new TextRun({ text: t, ...base, ...opt })); };
-  while ((m = re.exec(text)) !== null) {
-    push(text.slice(last, m.index));
-    const tok = m[0];
-    if (tok.startsWith("**")) push(tok.slice(2, -2), { bold: true });
-    else if (tok.startsWith("`")) push(tok.slice(1, -1), { font: "Consolas" });
-    else if (tok.startsWith("$")) push(prettifyMath(tok.slice(1, -1)), { italics: true });
-    else if (tok.startsWith("*")) push(tok.slice(1, -1), { italics: true });
-    last = m.index + tok.length;
+  let bold = false, italic = false, code = false, cur = "";
+  const flush = () => {
+    if (!cur) return;
+    runs.push(new TextRun({
+      text: cur,
+      bold: !!(base.bold || bold),
+      italics: !!(base.italics || italic),
+      font: code ? "Consolas" : base.font,
+      color: base.color,
+    }));
+    cur = "";
+  };
+  for (let k = 0; k < text.length;) {
+    if (!code && text.startsWith("**", k)) { flush(); bold = !bold; k += 2; continue; }
+    const ch = text[k];
+    if (!code && ch === "*") { flush(); italic = !italic; k++; continue; }
+    if (ch === "`") { flush(); code = !code; k++; continue; }
+    if (!code && ch === "$") {
+      const end = text.indexOf("$", k + 1);
+      if (end > k) {
+        flush();
+        runs.push(new TextRun({ text: prettifyMath(text.slice(k + 1, end)),
+          italics: true, bold: !!base.bold, color: base.color }));
+        k = end + 1; continue;
+      }
+    }
+    cur += ch; k++;
   }
-  push(text.slice(last));
+  flush();
   return runs.length ? runs : [new TextRun({ text: "", ...base })];
 }
 
@@ -190,13 +208,18 @@ while (i < lines.length) {
     continue;
   }
 
-  // unordered list
+  // unordered list — folds wrapped continuation lines into each bullet
   if (/^\s*[-*]\s+/.test(line)) {
     while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
-      const lvl = Math.min(2, Math.floor((lines[i].match(/^\s*/)[0].length) / 2));
+      const lvl = Math.min(2, Math.floor(indentOf(lines[i]) / 2));
+      const wbuf = [lines[i].replace(/^\s*[-*]\s+/, "")]; i++;
+      while (i < lines.length && !/^\s*$/.test(lines[i]) && indentOf(lines[i]) >= 2 &&
+             !/^\s*[-*]\s+/.test(lines[i]) && !/^\s*\d+\.\s+/.test(lines[i]) &&
+             !/^\s*\$\$/.test(lines[i])) {
+        wbuf.push(lines[i].trimStart()); i++;
+      }
       children.push(new Paragraph({ numbering: { reference: "ul", level: lvl },
-        children: inline(lines[i].replace(/^\s*[-*]\s+/, "")) }));
-      i++;
+        children: inline(wbuf.join(" ")) }));
     }
     continue;
   }

@@ -3,7 +3,7 @@
 # Manuscript publishing is a MANDATORY two-format step: every manuscript Markdown
 # must yield BOTH a .docx and a .pdf (see docs/MANUSCRIPT_PROCESS.md).
 
-MANUSCRIPTS := RESEARCH_PAPER.md RESEARCH_PAPER_DETAILED.md
+MANUSCRIPTS := RESEARCH_PAPER.md RESEARCH_PAPER_DETAILED.md RESEARCH_PAPER_SIMPLE.md
 
 .PHONY: manuscript deck test clean-artifacts
 

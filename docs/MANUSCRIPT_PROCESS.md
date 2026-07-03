@@ -72,3 +72,4 @@ path can be added later if journal submission requires typeset equations.
 |---|---|
 | `RESEARCH_PAPER.md` | v1.0 working paper (concise) |
 | `RESEARCH_PAPER_DETAILED.md` | v2.0 extended, peer-review-oriented manuscript |
+| `RESEARCH_PAPER_SIMPLE.md` | plain-English ("caveman") edition — statistics explained in everyday words |
