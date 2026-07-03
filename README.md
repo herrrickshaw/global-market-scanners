@@ -93,6 +93,7 @@ classification → fundamentals on breakout candidates → styled Excel export**
 
 **Guides**
 - [User Guide](USER_GUIDE.md) — end-to-end workflows for every capability
+- [Research paper](RESEARCH_PAPER.md) — full write-up: approach, data, assumptions, abstract & cross-market results
 - [Glossary of reusable blocks](GLOSSARY.md) — the shared `marketdata.py` library + each module's pure functions
 - [Watchlist store](WATCHLIST_STORE.md) — application-level versioned CRUD for watchlists (append-only) behind the serve.py REST endpoints
 - [Security & Integrity](SECURITY.md) — signed commits, checksum manifest, branch protection
