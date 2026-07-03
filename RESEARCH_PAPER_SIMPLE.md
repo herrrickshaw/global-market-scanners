@@ -172,15 +172,33 @@ yourself" is the most valuable thing we can offer.
 
 ---
 
-## What could still be wrong (being honest)
+## What could still be wrong — and how we'd fix it (being honest)
 
-- Outside the US, our "company health" numbers are a **snapshot of today**, not a full history —
-  so those results show the right *direction*, but the exact sizes are rough.
-- Some countries had **too little data** (less than a year), so we didn't force a number there —
-  we left it blank rather than guess.
-- All the returns are **before trading costs**. The strong tricks survive costs; the weak ones
-  probably don't.
-- We only looked at stocks that **still exist today**, which slightly flatters some results.
+Every weak spot below has a known fix. We name the problem, then the plan. Naming the fix is how
+you turn a weakness into a to-do list instead of an excuse.
+
+- **Problem:** Outside the US, our "company health" numbers are a **snapshot of today**, not a
+  full history — so those results show the right *direction*, but the exact sizes are rough.
+  **Fix:** pull each company's *old* report cards straight from the public filing offices in
+  each country (the same idea as the US government database we already use), and only use a
+  number *after* the day it was actually published. Then every health score is "what we truly
+  knew back then," in every country — not today's answer pasted onto the past.
+- **Problem:** Some countries had **too little data** (less than a year), so we didn't force a
+  number there — we left it blank rather than guess.
+  **Fix:** do a special *long* download for those countries (like the 10-year one we already did
+  for the US), and set a rule: **no country gets a score until it has at least a few years of
+  history.** A blank beats a bad guess.
+- **Problem:** All the returns are **before trading costs**. The strong tricks survive costs; the
+  weak ones probably don't.
+  **Fix:** run every result through our cost calculator — fees, plus the gap between the buy and
+  sell price, plus the "you nudge the price when you trade" cost (bigger for hard-to-sell stocks)
+  — and show the **after-cost** number as the main one, next to the **break-even cost**: the toll
+  level that would just erase the profit. Then anyone can see which tricks pay after the toll.
+- **Problem:** We only looked at stocks that **still exist today**, which slightly flatters some
+  results (the losers that died are missing from the test).
+  **Fix:** rebuild the list of stocks *as it stood on each past date* — including the ones that
+  later went bust or got bought out — and give the dead ones their real final ("delisting")
+  return. That puts the failures back into the test, where they belong.
 
 We say all this out loud because hiding it would be exactly the "sloppy measuring" we're warning
 against.

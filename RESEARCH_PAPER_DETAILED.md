@@ -648,6 +648,27 @@ We enumerate threats in the categories a referee would use.
 - **(L10) Not investment advice.** All outputs are research signals; nothing here is a
   recommendation to transact in any security.
 
+### 6.1 Remediation roadmap — how each limitation would be closed
+
+Each limitation above is *addressable*, and naming the fix is part of the measurement
+discipline the paper argues for. The table maps each material threat to a concrete remedy and a
+specific, public-first data source or method; the effort column is a rough order of magnitude.
+
+| # | Limitation | Proposed fix | Concrete data source / method | Effort |
+|---|---|---|---|---|
+| L1 | Snapshot (not point-in-time) fundamentals outside the U.S. | Build a **filed-date fundamentals panel**; use each figure only from the date it was actually published | Primary regulatory filings per market — India MCA / BSE–NSE XBRL, EU ESEF via national OAMs, Japan EDINET, Brazil CVM — or a point-in-time vendor feed (S&P Capital IQ / Refinitiv "as-reported") with report timestamps | High |
+| L2, L3 | Earnings events proxied by volume outside the U.S. | Extend **real filing-date event dating** beyond the U.S., exactly as EDGAR did for it | Per-market regulatory announcement feeds (SEBI/NSE corporate announcements, Brazil CVM, EU ESEF), aligning each event to its legal timestamp | Medium |
+| L4 | Survivorship (current names only) | Reconstruct the **point-in-time universe including delisted names**, and assign delisting returns | Historical index-constituent membership + delisted-security returns (CRSP delisting codes; free proxies: exchange delisting notices, Stooq delisted archives, dated Wikipedia constituent history) | Medium–High |
+| L5 | Short (~1-year) cache under-powers long-horizon and monthly tests | **Dedicated multi-year fetches for all markets** + a minimum-history gate per signal | Generalise the existing 10-year U.S. fetch to every market; require ≥ N years of history before a horizon is reported (else withhold) | Low–Medium |
+| L8 | Gross (pre-cost) returns | Report **net-of-cost as the headline**, plus a **break-even cost** for each signal | Existing `apply_costs.py`: half-spread + commission + market impact scaled by Amihud illiquidity and average daily volume, times each strategy's turnover; report gross, net, and the cost level that zeroes the spread | Low |
+| L6 | India (the source market) absent from this cache | **Reproduce QMJ on India's deep history** to close the generalisation gap | The separate India repository's ~10-year point-in-time panel | Low |
+
+Two design choices already point this way: the liquidity premium (§3.5, §4.4) used a dedicated
+ten-year fetch rather than the short cache (the L5 fix, applied once), and PEAD (§4.3) used real
+EDGAR dates rather than the volume proxy (the L2/L3 fix, applied to the U.S.). The roadmap is
+therefore not speculative — it is the same two moves that already flipped nulls into results,
+generalised to the remaining markets and signals.
+
 ---
 
 ## 7. Reproducibility and governance (the paper's real subject)
@@ -681,13 +702,14 @@ decade of data; accumulation emerged only at a multi-month horizon. Each discipl
 re-measurement converted an inconclusive or null result into a significant, theory-consistent
 one — the inverse of the replication crisis.
 
-**Future work.** (i) Replace snapshot fundamentals with filed-date panels outside the U.S. to
-make quality tests point-in-time everywhere. (ii) Extend real-date event dating beyond the
-U.S. (e.g. regulatory filing feeds for Brazil, India). (iii) Add point-in-time index
-constituents to eliminate survivorship. (iv) Re-run every spread net of the cost model as the
-headline, not a robustness check. (v) Reproduce QMJ on India's deep history to close C4.
-(vi) Combine the signals in a machine-learning cross-section (Gu, Kelly & Xiu, 2020) under the
-same point-in-time protocol, treating the tested factors as inputs rather than competitors.
+**Future work.** Items (i)–(v) are the data/measurement fixes specified concretely, with
+sources and effort, in the **§6.1 remediation roadmap**: filed-date fundamentals panels outside
+the U.S. (L1), real-date event dating beyond the U.S. (L2/L3), point-in-time constituents to
+remove survivorship (L4), multi-year fetches with a minimum-history gate (L5), net-of-cost
+headline spreads with break-even costs (L8), and reproducing QMJ on India's deep history (L6).
+Beyond closing those, (vi) combine the signals in a machine-learning cross-section (Gu, Kelly &
+Xiu, 2020) under the same point-in-time protocol, treating the tested factors as inputs rather
+than competitors.
 
 ---
 
