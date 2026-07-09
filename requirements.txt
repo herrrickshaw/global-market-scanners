@@ -22,12 +22,21 @@ pykrx                    # South Korea: KRX/Naver (unpinned upstream)
 scikit-learn==1.6.1      # Ridge/Linear regression directional signal
 scipy==1.13.1
 
-# --- Streaming / storage frameworks (speed up repeated runs) ---
-# Python CLIENTS only. The SERVERS are system installs (macOS: `brew install
-# cassandra kafka apache-flink`, started via `brew services`). See INFRA.md.
-cassandra-driver==3.29.3 # OHLC/fundamentals cache in Cassandra (market_store.py)
-confluent-kafka==2.14.2  # Kafka producer/consumer stream pipeline (stream_pipeline.py)
-apache-flink             # PyFlink jobs (flink_screens.py); optional/heavy, needs JDK
+# --- Streaming / storage frameworks (MANDATORY — market_store.py raises
+# MarketStoreUnavailable / CDCPublishError at call time if these aren't
+# installed and the corresponding service isn't running; there is no
+# yfinance-direct fallback path anymore). Python CLIENTS only — the SERVERS
+# are system installs (macOS: `brew install cassandra kafka`, started via
+# `brew services` — both of these have real launchd services and stay up).
+cassandra-driver==3.29.3 # required: OHLC cache in Cassandra (market_store.py)
+confluent-kafka==2.14.2  # required: CDC publish (market_store.py) + work-queue (stream_pipeline.py)
+                         #   consumed by kafka_cdc_consumer.py / kafka_signal_consumer.py (pure
+                         #   Python, no JVM) — the default real-time consumers.
+apache-flink==2.3.0      # OPTIONAL: flink_cdc_consumer.py / flink_screens.py do the same jobs
+                         #   on PyFlink for when a real multi-node deployment earns its cost.
+                         #   `brew install apache-flink` has NO `brew services` entry — a
+                         #   standalone cluster is not a persistent system service like
+                         #   Cassandra/Kafka are, so don't depend on it staying up unattended.
 
 # Notes:
 #  - Python 3.9+; on macOS some NSE history libs need browser cookies,

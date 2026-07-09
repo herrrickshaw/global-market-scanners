@@ -13,8 +13,23 @@ Drop-in usage:
     # 1st call: downloads misses + writes to Cassandra
     # later calls: served from Cassandra (no network)
 
-Falls back cleanly to plain yfinance if Cassandra isn't reachable, so nothing
-breaks when the node is down.
+Cassandra and the Kafka CDC publish are MANDATORY, not optional fallbacks.
+Every write path (put_ohlc) requires a live Cassandra session and requires the
+Kafka publish to succeed — this module raises MarketStoreUnavailable /
+CDCPublishError rather than degrading silently, so a broken node or a stopped
+consumer surfaces immediately instead of quietly reverting to uncached,
+unmonitored yfinance calls.
+
+`kafka_cdc_consumer.py` (pure Python, no JVM) is the default consumer for this
+topic and is meant to run at all times — install it as a persistent service
+via kafka_cdc_consumer.plist, the same way Cassandra/Kafka run via `brew
+services` rather than as a one-off foreground process. `flink_cdc_consumer.py`
+does the same job on PyFlink and is kept as an option for when a real
+multi-node Flink deployment earns its operational cost, but the `apache-flink`
+Homebrew formula has no `brew services` entry — a manually-started standalone
+cluster is not a persistent system service the way Cassandra/Kafka are, and in
+practice it was killed by an external signal within an hour of starting it.
+Don't rely on it being up unless something is actively supervising it.
 
 Schema (keyspace `market`):
     ohlc_bars(ticker text, d date, o,h,l,c,v double, PRIMARY KEY (ticker, d))
@@ -29,42 +44,76 @@ import warnings
 from datetime import date, timedelta
 
 import pandas as pd
+# Hard dependencies — no try/except around these imports. If either package is
+# missing, the module must fail at import time, not degrade at call time.
+from cassandra.cluster import Cluster
+from cassandra import ConsistencyLevel
+from cassandra.concurrent import execute_concurrent_with_args
+from confluent_kafka import Producer
 
 warnings.filterwarnings("ignore")
 
 KEYSPACE = "market"
-CDC_TOPIC = "ohlc.cdc"           # blueprint: mutations -> Kafka -> Flink
+CDC_TOPIC = "ohlc.cdc"           # mutations -> Kafka -> kafka_cdc_consumer.py
 _session = None
 _prepared = {}
 _producer = None
 
 
+class MarketStoreUnavailable(RuntimeError):
+    """Raised when Cassandra cannot be reached. Cassandra is mandatory for this
+    module — callers must handle this explicitly rather than getting silent
+    yfinance-direct behavior."""
+
+
+class CDCPublishError(RuntimeError):
+    """Raised when a CDC mutation event cannot be published to Kafka. The
+    real-time fan-out (a consumer reading `ohlc.cdc`) is mandatory, so a
+    publish failure is not swallowed."""
+
+
 def _emit_cdc(ticker: str, n_bars: int, latest):
-    """Application-level Change Data Capture: publish a mutation event to Kafka on
-    write, mirroring the blueprint's Cassandra->CDC->Kafka dataflow without the
-    commit-log CDC machinery. Opt-in via MARKET_STORE_CDC=1; best-effort."""
+    """Publish a mutation event to Kafka and confirm delivery. Mandatory: any
+    failure to construct the producer, enqueue, or deliver the message raises
+    CDCPublishError rather than being swallowed, so a dead broker (or no
+    consumer running) is visible at write time instead of silently losing
+    real-time events.
+
+    Calls flush(), not just poll(0) — a bare poll(0) only serves already-queued
+    delivery callbacks and returns immediately, so a short-lived process (any
+    one-off script, not just a long-running server) can exit before librdkafka
+    has actually sent the message, silently dropping it. flush() blocks until
+    the broker has acked or the timeout elapses, and raises on failure."""
     global _producer
-    if os.environ.get("MARKET_STORE_CDC") != "1":
-        return
+    delivery_error = []
+
+    def _on_delivery(err, msg):
+        if err is not None:
+            delivery_error.append(err)
+
     try:
         if _producer is None:
-            from confluent_kafka import Producer
-            _producer = Producer({"bootstrap.servers": "localhost:9092"})
+            _producer = Producer({"bootstrap.servers": os.environ.get("KAFKA_BOOTSTRAP", "localhost:9092")})
         _producer.produce(CDC_TOPIC, key=ticker, value=json.dumps(
             {"op": "upsert", "table": "ohlc_bars", "ticker": ticker,
-             "n_bars": int(n_bars), "latest": str(latest)}))
-        _producer.poll(0)
-    except Exception:
-        pass  # CDC is a side-channel; never block the write
+             "n_bars": int(n_bars), "latest": str(latest)}), callback=_on_delivery)
+        remaining = _producer.flush(timeout=10)
+    except Exception as e:
+        raise CDCPublishError(f"failed to publish CDC event for {ticker}: {e}") from e
+    if remaining > 0:
+        raise CDCPublishError(f"CDC event for {ticker} not delivered within 10s ({remaining} still queued)")
+    if delivery_error:
+        raise CDCPublishError(f"CDC event for {ticker} rejected by broker: {delivery_error[0]}")
 
 
 def _connect():
-    """Return a Cassandra session, or None if unreachable (caller falls back)."""
+    """Return a Cassandra session. Mandatory: raises MarketStoreUnavailable
+    instead of returning None, so callers can't accidentally treat a down
+    Cassandra node as "no cache, proceed with plain yfinance"."""
     global _session
     if _session is not None:
         return _session
     try:
-        from cassandra.cluster import Cluster
         cluster = Cluster(["127.0.0.1"], port=9042, connect_timeout=4)
         s = cluster.connect()
         s.execute(
@@ -73,20 +122,16 @@ def _connect():
         s.set_keyspace(KEYSPACE)
         # tunable consistency (blueprint): single node -> LOCAL_ONE; raise to
         # LOCAL_QUORUM when running RF>=3 across a cluster.
-        try:
-            from cassandra import ConsistencyLevel
-            s.default_consistency_level = ConsistencyLevel.LOCAL_ONE
-        except Exception:
-            pass
+        s.default_consistency_level = ConsistencyLevel.LOCAL_ONE
         s.execute("""CREATE TABLE IF NOT EXISTS ohlc_bars(
             ticker text, d date, o double, h double, l double, c double, v double,
             PRIMARY KEY (ticker, d))""")
         _session = s
         return s
     except Exception as e:
-        print(f"  [market_store] Cassandra unavailable ({e}); using yfinance direct",
-              file=sys.stderr)
-        return None
+        raise MarketStoreUnavailable(
+            f"Cassandra is required by market_store.py but is unreachable: {e}"
+        ) from e
 
 
 def _prep(s, key, cql):
@@ -96,10 +141,10 @@ def _prep(s, key, cql):
 
 
 def coverage(ticker: str):
-    """(min_date, max_date, n_bars) held in Cassandra for a ticker, or None."""
+    """(min_date, max_date, n_bars) held in Cassandra for a ticker, or None.
+    Raises MarketStoreUnavailable if Cassandra itself is unreachable — that is
+    a different condition from "ticker not yet cached" (which returns None)."""
     s = _connect()
-    if not s:
-        return None
     row = s.execute(_prep(s, "cov",
         "SELECT MIN(d) AS mn, MAX(d) AS mx, COUNT(*) AS n FROM ohlc_bars WHERE ticker=?"),
         (ticker,)).one()
@@ -111,12 +156,14 @@ def coverage(ticker: str):
 
 
 def put_ohlc(ticker: str, df: pd.DataFrame):
-    s = _connect()
-    if not s or df is None or df.empty:
+    """Write bars for a ticker and publish the CDC mutation event. Both the
+    Cassandra write and the Kafka publish are mandatory — a failure in either
+    raises rather than silently dropping the write or the real-time event."""
+    if df is None or df.empty:
         return
+    s = _connect()
     ins = _prep(s, "ins",
         "INSERT INTO ohlc_bars(ticker,d,o,h,l,c,v) VALUES (?,?,?,?,?,?,?)")
-    from cassandra.concurrent import execute_concurrent_with_args
     args = []
     for idx, r in df.iterrows():
         d = idx.date() if hasattr(idx, "date") else idx
@@ -124,14 +171,12 @@ def put_ohlc(ticker: str, df: pd.DataFrame):
                      float(r.get("High", r.get("Close"))), float(r.get("Low", r.get("Close"))),
                      float(r["Close"]), float(r.get("Volume", 0) or 0)))
     execute_concurrent_with_args(s, ins, args, concurrency=64)
-    if args:                                  # emit CDC mutation event (opt-in)
+    if args:                                  # emit CDC mutation event (mandatory)
         _emit_cdc(ticker, len(args), df.index.max().date() if hasattr(df.index.max(), "date") else None)
 
 
 def get_ohlc(ticker: str) -> pd.DataFrame:
     s = _connect()
-    if not s:
-        return pd.DataFrame()
     rows = s.execute(_prep(s, "sel",
         "SELECT d,o,h,l,c,v FROM ohlc_bars WHERE ticker=?"), (ticker,))
     recs = [((r.d.date() if hasattr(r.d, "date") else r.d), r.o, r.h, r.l, r.c, r.v)
@@ -145,8 +190,10 @@ def get_ohlc(ticker: str) -> pd.DataFrame:
 
 def cached_download(tickers, years: int = 5, refresh_days: int = 3) -> dict:
     """OHLC for tickers: served from Cassandra when fresh, else downloaded and
-    written back. Returns {ticker: DataFrame}. Falls back to pure yfinance if
-    Cassandra is down."""
+    written back. Returns {ticker: DataFrame}. Cassandra is mandatory — this
+    raises MarketStoreUnavailable immediately (before touching yfinance at all)
+    if the cluster can't be reached, instead of quietly reverting to
+    uncached/unmonitored direct downloads."""
     from apiclient import yf_download   # governed, deduped, chunked, rate-limited
     out, misses = {}, []
     fresh_cut = date.today() - timedelta(days=refresh_days + 4)   # allow weekend/holiday gap
@@ -154,10 +201,10 @@ def cached_download(tickers, years: int = 5, refresh_days: int = 3) -> dict:
     # starts ~exactly 5y ago, so don't demand more history than it returns).
     need_start = date.today() - timedelta(days=int(years * 365) - 30)
 
-    s = _connect()
+    _connect()  # raises MarketStoreUnavailable up front if Cassandra is down
     stale = []                    # cached with enough history but missing recent days
     for t in tickers:
-        cov = coverage(t) if s else None
+        cov = coverage(t)
         if cov and cov[0] <= need_start and cov[1] >= fresh_cut:
             out[t] = get_ohlc(t)                       # fresh — serve from cache
         elif cov and cov[0] <= need_start:

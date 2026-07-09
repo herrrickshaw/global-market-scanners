@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd service for kafka_cdc_consumer.py — the mandatory real-time consumer
+  for market_store.py's `ohlc.cdc` topic. Runs continuously (KeepAlive), same
+  persistence model as homebrew.mxcl.cassandra.plist / homebrew.mxcl.kafka.plist,
+  instead of a manually-started process that dies with the shell session.
+
+  Install / reload:
+    cp com.umashankar.kafkacdcconsumer.plist ~/Library/LaunchAgents/
+    launchctl bootout   gui/$(id -u)/com.umashankar.kafkacdcconsumer 2>/dev/null
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.umashankar.kafkacdcconsumer.plist
+
+  Status / logs:
+    launchctl print gui/$(id -u)/com.umashankar.kafkacdcconsumer
+    tail -f ~/repos/global-market-scanners/kafka_cdc_consumer.log
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.umashankar.kafkacdcconsumer</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/umashankar/Downloads/code/python_files/.venv_eu/bin/python3</string>
+    <string>/Users/umashankar/repos/global-market-scanners/kafka_cdc_consumer.py</string>
+    <string>--window</string>
+    <string>30</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/umashankar/repos/global-market-scanners</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/Users/umashankar/repos/global-market-scanners/kafka_cdc_consumer.log</string>
+  <key>StandardErrorPath</key><string>/Users/umashankar/repos/global-market-scanners/kafka_cdc_consumer.err.log</string>
+</dict>
+</plist>
