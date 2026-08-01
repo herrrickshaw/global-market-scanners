@@ -854,12 +854,15 @@ Python 3 with `pandas`, `numpy`, `scipy`/`statsmodels` (OLS, t-tests), `yfinance
 Reviewed while building the platform; they informed the emphasis on out-of-sample discipline
 and measurement care but are not the source of any specific reported statistic.
 
-- Preet, S., Gulati, A., Gupta, A., & Aggarwal, A. *Backtesting the Magic Formula on Indian
-  stock markets.* SGGSCC, University of Delhi (SSRN 3945468).
+- Preet, S., Gulati, A., Gupta, A., & Aggarwal, A. (2021). *Back Testing Magic Formula on
+  Indian Stock Markets: An Analysis of Magic Formula Strategy.* SGGSCC, University of Delhi
+  (SSRN 3945468).
 - Dhanus, S., & Amutha, G. (2025). *Back-testing Super Trend in the 15-minute time frame among
   the top 5 contributors of Nifty 50 stocks.* IJARCMSS 8(2-II), 10–14.
-- *Backtesting Brilliance: leveraging analytics for comparing buy-&-hold vs. active
-  strategies.* Journal of Informatics Education and Research 4(3), 2024.
+- Bhute, A., Tripathi, M. M., Jadav, D., Kasar, A., & Bathia, A. (2024). *Backtesting
+  Brilliance: leveraging analytics for comparing buy-&-hold vs. trading strategies based on
+  technical indicators.* Journal of Informatics Education and Research 4(3).
+  doi:10.52783/jier.v4i3.1785
 - Kargarzadeh, A. *Developing and backtesting a trading strategy using large language models,
   macroeconomic and technical indicators.* Imperial College London.
 - Liu, B., & Zhu, H. (2024). *Analysis of market efficiency in main stock markets using the Kalman filter.*
