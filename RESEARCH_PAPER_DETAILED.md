@@ -862,7 +862,7 @@ and measurement care but are not the source of any specific reported statistic.
   strategies.* Journal of Informatics Education and Research 4(3), 2024.
 - Kargarzadeh, A. *Developing and backtesting a trading strategy using large language models,
   macroeconomic and technical indicators.* Imperial College London.
-- Liu, B. (2024). *Analysis of market efficiency in main stock markets using the Kalman filter.*
+- Liu, B., & Zhu, H. (2024). *Analysis of market efficiency in main stock markets using the Kalman filter.*
   Stern School of Business, New York University (arXiv 2404.16449).
 - Palomar, D. P. *Backtesting portfolios* (MAFS5310). HKUST.
 - Schumann, E. (2018). *Backtesting* (SSRN 3374195).
