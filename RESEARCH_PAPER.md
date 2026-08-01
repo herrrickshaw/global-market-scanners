@@ -264,7 +264,7 @@ factor-plus-ML framing; they are not the source of any specific reported statist
 - Liu, B., & Zhu, H. (2024). *Analysis of market efficiency in main stock markets using the Kalman filter as an approach.* Stern School of Business, New York University (arXiv 2404.16449).
 - Palomar, D. P. *Backtesting portfolios* (MAFS5310, Portfolio Optimization with R). HKUST.
 - Schumann, E. (2018). *Backtesting* (SSRN 3374195).
-- *Comprehensive analysis of machine and deep learning models* (for stock forecasting). IJACSA 16(8), 2025.
+- AlQahtani, H. S., Alhaddad, M. J., & Jarrah, M. (2025). *Comprehensive analysis of machine and deep learning models for stock market prediction.* IJACSA 16(8), 455-463.
 - Toichatturat, N. (2025). *Stock-market forecasting with a deep-learning approach: generative adversarial networks (GANs).* SET Research Scholarship Paper 2024/2025, Thammasat University.
 - Miao, Y. *A deep-learning approach for stock-market prediction* (CS230). Stanford University.
 - Fister, D., Mun, J. C., Jagrič, V., & Jagrič, T. (2019). *Deep learning for stock-market trading: a superior trading strategy?* Neural Network World 29(1), 011.

@@ -869,8 +869,8 @@ and measurement care but are not the source of any specific reported statistic.
   Stern School of Business, New York University (arXiv 2404.16449).
 - Palomar, D. P. *Backtesting portfolios* (MAFS5310). HKUST.
 - Schumann, E. (2018). *Backtesting* (SSRN 3374195).
-- *Comprehensive analysis of machine and deep learning models for stock forecasting.* IJACSA
-  16(8), 2025.
+- AlQahtani, H. S., Alhaddad, M. J., & Jarrah, M. (2025). *Comprehensive analysis of machine
+  and deep learning models for stock market prediction.* IJACSA 16(8), 455-463.
 - Toichatturat, N. (2025). *Stock-market forecasting with a deep-learning approach: generative
   adversarial networks (GANs).* SET Research Scholarship Paper 2024/2025, Thammasat University.
 - Miao, Y. *A deep-learning approach for stock-market prediction* (CS230). Stanford University.
