@@ -4,8 +4,10 @@
 #
 # PAPER SOURCE
 # ────────────
-# AlQahtani et al. (IJACSA 2025) — "Comprehensive Analysis of Machine and
-# Deep Learning Models for Stock Market Prediction"
+# AlQahtani, H. S., Alhaddad, M. J., & Jarrah, M. (2025). "Comprehensive
+# Analysis of Machine and Deep Learning Models for Stock Market Prediction."
+# IJACSA 16(8). doi:10.14569/IJACSA.2025.0160845 — Saudi Tadawul, 8 stocks,
+# 2020–2025; models evaluated: Linear Regression, RNN, LSTM.
 #
 # Key findings applied here:
 #   1. Linear Regression outperformed LSTM and RNN on financial data
@@ -24,6 +26,10 @@
 #
 #   5. Multivariate CNN-LSTM (RMSE 0.0162) is best DL option
 #      → Implemented as optional upgrade path; Linear Regression is default
+#      NOTE: the 0.0162 figure is NOT AlQahtani's own result — it is from
+#      Widiputra, H., Mailangkay, A., & Gautama, E. (2021). "Multivariate
+#      CNN-LSTM model for multiple parallel financial time-series
+#      prediction." Complexity 2021, cited in AlQahtani's review table.
 #
 #   6. Features beyond raw OHLC: technical indicators improve accuracy
 #      → RSI(14), MACD(12,26,9), Bollinger Bands(20,2), DMA50, DMA200
