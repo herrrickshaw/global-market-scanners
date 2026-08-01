@@ -1,0 +1,65 @@
+name: quality-gates
+# CI-side equivalents of the LOCAL pre-commit hooks (gitleaks + cite_check).
+# Purpose: anything that commits via the GitHub API — Jules, other coding
+# agents, web-UI edits, pushes from machines without the hooks — bypasses
+# local pre-commit entirely. This workflow closes that gap at PR/push time.
+#
+# Canonical checker + bibliography: herrrickshaw/global-market-research-platform
+#   market-pipeline/code/python_files/{cite_check.py,references.bib}
+# Non-canonical repos fetch them at run time (branch, then main fallback).
+# Deployed 2026-08-02 by the literature-audit follow-up; template kept in the
+# canonical repo at market-pipeline/code/python_files/quality-gates.yml.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    name: secrets (working tree)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - name: Install gitleaks
+        run: |
+          curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz \
+            | tar -xz gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+      # --no-git scans the checked-out tree only (the CI analogue of the local
+      # `gitleaks protect --staged` hook). Deliberately NOT scanning history:
+      # historic leaks are already catalogued and purged; re-flagging them
+      # would make the gate permanently red.
+      - name: Scan working tree for secrets
+        run: gitleaks detect --no-git --redact --no-banner --source .
+
+  cite-check:
+    name: citations (references.bib)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - name: Run citation check
+        run: |
+          set -e
+          CANON_DIR="market-pipeline/code/python_files"
+          if [ -f "$CANON_DIR/cite_check.py" ]; then
+            # This IS the canonical repo — run its own copy, scoped to the
+            # audited subtree (the wider home-repo tree is out of audit scope).
+            cd "$CANON_DIR"
+            python3 cite_check.py --all
+          else
+            RAW="https://raw.githubusercontent.com/herrrickshaw/global-market-research-platform"
+            mkdir -p .ci_cite
+            for f in cite_check.py references.bib; do
+              curl -fsSL "$RAW/claude/strategy-pipeline/market-pipeline/code/python_files/$f" -o ".ci_cite/$f" \
+                || curl -fsSL "$RAW/main/market-pipeline/code/python_files/$f" -o ".ci_cite/$f"
+            done
+            CITE_CHECK_BIB="$PWD/.ci_cite/references.bib" python3 .ci_cite/cite_check.py --all
+          fi
