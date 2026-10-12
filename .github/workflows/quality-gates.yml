@@ -55,11 +55,11 @@ jobs:
             cd "$CANON_DIR"
             python3 cite_check.py --all
           else
-            RAW="https://raw.githubusercontent.com/herrrickshaw/global-market-research-platform"
+            # Public source: herrrickshaw/.github (the old private repo's raw URLs 404'd)
+            RAW="https://raw.githubusercontent.com/herrrickshaw/.github/main/cite"
             mkdir -p .ci_cite
             for f in cite_check.py references.bib; do
-              curl -fsSL "$RAW/claude/strategy-pipeline/market-pipeline/code/python_files/$f" -o ".ci_cite/$f" \
-                || curl -fsSL "$RAW/main/market-pipeline/code/python_files/$f" -o ".ci_cite/$f"
+              curl -fsSL "$RAW/$f" -o ".ci_cite/$f"
             done
             CITE_CHECK_BIB="$PWD/.ci_cite/references.bib" python3 .ci_cite/cite_check.py --all
           fi
