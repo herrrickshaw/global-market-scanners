@@ -61,3 +61,27 @@ python data_sources.py --public        # the public factor libraries + URLs
 
 Pure lookups (`for_market`, `public_factor_sources`, `raw_sources`, `paper_sources`)
 are covered by [`tests/`](tests/test_core.py) and enforced by CI.
+
+## Open keyless sources added 2026-10-17 (verified by curl before adding)
+
+| Source | Gap it fills | Verified | Collector | Output |
+|---|---|---|---|---|
+| **FINRA consolidated short interest** (`cdn.finra.org/equity/otcmarket/biweekly/shrtYYYYMMDD.csv`) | [`crowding.py`](crowding.py) / [FRONTIER_GAPS.md](FRONTIER_GAPS.md) say true short interest "needs a vendor feed" | HTTP 200, 22,581 rows for settlement 2026-09-30 (AAPL, TSLA present; NYSE/NNM/ARCA/OTC classes), days-to-cover field populated; 2026-09-15 file also HTTP 200 | [`finra_short_interest.py`](finra_short_interest.py) | `data/finra_short_interest_20260930.csv.gz` (668 KB) |
+| **ECB euro reference rates** (`ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml`) | `fx.py` rates come from yfinance with a hand-edited offline snapshot; no official source | HTTP 200, 1,885 rows, 65 dates (2026-07-20..2026-10-16), 29 currencies incl. USD/JPY/KRW/INR/CNY/GBP | [`ecb_fx.py`](ecb_fx.py) | `data/ecb_fx_hist_90d.csv` (42 KB) |
+
+Caveats: short interest is a settlement-date snapshot published with a lag (add a
+publication lag before any backtest use); not wired into `crowding.py` or `fx.py` yet.
+ECB rates are reference-only, EUR-based, TARGET business days. The collectors were run
+once at low volume; no existing data was modified. A side observation: FINRA's *daily*
+Reg SHO short-sale-volume file (`CNMSshvolYYYYMMDD.txt`) also returned HTTP 200, but its
+volume columns contain fractional share counts (e.g. 343590.219355), which is odd for
+share volumes, so it was NOT adopted and is unexplained.
+
+### Candidates checked and rejected
+- **Nager.Date public holidays** (`date.nager.at/api/v3/PublicHolidays/{year}/{CC}`): keyless
+  and responds for US/JP/KR/DE/GB, but returns nothing parseable for IN, and these are
+  *public* holidays, not exchange calendars (e.g. NYSE trades on some US public holidays),
+  so it cannot replace the curated `market_holidays.HOLIDAYS`. Not added.
+- **SEC fails-to-deliver** (`sec.gov/files/data/fails-deliver-data/cnsfails*.zip`): responded
+  HTTP 200 (1.1 MB zip) but only the header bytes were inspected, content not parsed; not
+  added.

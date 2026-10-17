@@ -125,7 +125,7 @@ classification → fundamentals on breakout candidates → styled Excel export**
 - [PEAD factor](PEAD.md) — post-earnings-announcement drift; the scout→implement→covered loop closed
 - [Liquidity factor](LIQUIDITY.md) — Amihud illiquidity + liquidity premium; scout gap #2 closed
 - [Liquidity multi-year](LIQUIDITY.md#multi-year-test--the-premium-is-significant-liquidity_multiyearpy) — 10y Fama-MacBeth: liquidity premium +4.24%/qtr, t=2.16 (significant)
-- [Data sources](DATA_SOURCES.md) — per-market public factor libraries (AQR/Ken French/IIMA IFFM); what the quality paper names
+- [Data sources](DATA_SOURCES.md) — per-market public factor libraries (AQR/Ken French/IIMA IFFM); what the quality paper names; keyless open sources (FINRA short interest, ECB FX) added 2026-10-17
 - [Benchmark](BENCHMARK.md) — fetches real Ken French factors and validates our quality tilt against them (−HML, +Mom)
 - [HFT selection](HFT_SELECTION.md) — the four HFT archetypes as a Tier-1 stock picker from daily high-low-close-volume
 - [Darvas × volume](DARVAS_VOLUME.md) — Darvas-box monitor for stealth volume acquisition + HFT footprint (coils & volume-confirmed breakouts)
@@ -137,6 +137,39 @@ classification → fundamentals on breakout candidates → styled Excel export**
 
 **Decision layer & consumption**
 - [Decision layer, global rigor & observability](DECISION_LAYER.md) — portfolio / risk / meta-screen / rotation / alerts / comps + global PIT + FX + data quality + serving
+
+## Literature context
+
+Entries from the market-pipeline `LITERATURE_REGISTER.md` that bear on this repo's
+point-in-time, survivorship and net-of-cost work (grades are the register's own; titles
+and ids as the register gives them):
+
+| Register entry | arXiv id | Register's grade |
+|---|---|---|
+| Agentic Trading: When LLM Agents Meet Financial Markets (hub paper; listed under "Strong evidence, high relevance") | 2605.19337 | section heading "Strong evidence"; no separate grade line |
+| Survivorship Bias in Emerging Market Small-Cap Indices: Evidence from India's NIFTY Smallcap 250 | 2603.19380 | moderate-to-weak |
+| Look-Ahead Benchmark Bias in Portfolio Performance Evaluation | 0810.1922 | high |
+| Transaction-cost-aware Factors (Baldi-Lanfranchi, 2024; no arXiv id given) | n/a | medium-strong |
+| FactorBench: A Portfolio-Aware Benchmark for Automated Factor Mining | 2610.06947 | medium as a method, moderate as a result |
+| Functionally Generated Portfolios Under Stochastic Transaction Costs | 2507.09196 | medium-weak |
+| Selecting and Testing Asset Pricing Models: A Stepwise Approach | 2601.10279 | medium |
+
+## Open questions from literature
+
+From the market-pipeline `BACKTEST_QUEUE.md` (queued there, **not run or implemented in
+this repo**); those that map onto this repo's modules:
+- Execution-cost model not wired in: queue item 4 notes an Almgren-Chriss square-root
+  impact model exists upstream but nothing imports it; the analogue here is whether
+  `net_of_cost.py` / `apply_costs.py` should use a size-aware impact term.
+- Real point-in-time discipline: queue item 5 asks for a `filed`-date column instead of the
+  FYE+90d proxy; this repo's `pit_fundamentals.py` / EDGAR path already keys on filing date
+  for the US, global markets remain snapshot-based.
+- Availability-time vs reference-time audit (queue item 11): enumerate every fundamentals
+  read and label it.
+- Factor spanning test (queue item 12): regress each factor on the others and report
+  alpha t-stats; the repo has no spanning test.
+- Walk-forward gap equal to the longest evaluated horizon (queue item 10) to measure how
+  much of a reported edge is label overlap.
 
 ---
 
