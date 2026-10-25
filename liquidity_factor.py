@@ -112,6 +112,7 @@ def monotonicity(curve: pd.DataFrame, col: str = "mean_fwd%") -> float:
 
 
 # ── data assembly (offline, prices) ───────────────────────────────────────────
+import marketdata
 from marketdata import close_volume as _market_wide
 
 

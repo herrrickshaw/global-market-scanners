@@ -93,6 +93,7 @@ def per_market_summary(panel_by_market: dict, min_events: int = 40) -> pd.DataFr
 
 
 # ── data assembly (offline, point-in-time) ────────────────────────────────────
+import marketdata
 from marketdata import wide as _wide
 
 
