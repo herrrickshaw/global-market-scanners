@@ -477,7 +477,7 @@ def fundamental_scan(symbol: str, yf_suffix: str = ".NS") -> dict:
             return []
 
         revs = series(inc, "Total Revenue")
-        cagr = ((revs[0]/revs[-1])**(1/(len(revs)-1))-1)*100 if len(revs)>=2 and revs[-1]>0 else None
+        cagr = ((revs[0]/revs[-1])**(1/(len(revs)-1))-1)*100 if len(revs)>=2 and revs[-1]>0 and revs[0]>0 else None
 
         ebit_s = series(inc, "EBIT", "Operating Income", "Ebit")
         ta_s   = series(bal, "Total Assets")
