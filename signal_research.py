@@ -498,7 +498,7 @@ def write_markdown(ic, fm, wf, cost, results, rules, pbo, oi):
           "median OOS Sharpe of IS-best | P(OOS loss) | degradation slope |",
           "|---|---|---|---|---|---|---|---|---|---|"]
     for _, r in pbo.iterrows():
-        L.append(f"| {r.h} | {r.variants} | {r["N"]} | {r["T"]} | {r.n_splits} | {fmt(r.pbo, 2)} | "
+        L.append(f"| {r.h} | {r.variants} | {r['N']} | {r['T']} | {r.n_splits} | {fmt(r.pbo, 2)} | "
                  f"{fmt(r.is_best_sr, 2)} | {fmt(r.oos_sr_of_is_best, 2)} | "
                  f"{fmt(r.p_oos_loss, 2)} | {fmt(r.degradation_slope, 2)} |")
     L += ["", "_'both signs' adds the opposite trade of every signal, because the direction "
