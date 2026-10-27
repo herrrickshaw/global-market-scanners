@@ -377,7 +377,7 @@ def main():
         return
     df = pd.DataFrame(all_rows).drop_duplicates(subset=["company_name", "segment"])
     df["fetched_at"] = datetime.now(timezone.utc).isoformat()
-    df.to_parquet(OUT_PARQUET, index=False, compression="snappy")
+    df.to_parquet(OUT_PARQUET, index=False, compression="zstd", compression_level=19)
     print(f"\nDONE: {len(df)} unlisted firms across {df['segment'].nunique()} segments "
           f"-> {OUT_PARQUET} ({os.path.getsize(OUT_PARQUET)//1024} KB)", file=sys.stderr)
 
@@ -390,7 +390,7 @@ def main():
         add["global_peers"] = [[] for _ in range(len(add))]
         merged = pd.concat([main_df, add[main_df.columns.intersection(add.columns)]],
                            ignore_index=True)
-        merged.to_parquet(MAIN_PARQUET, index=False, compression="snappy")
+        merged.to_parquet(MAIN_PARQUET, index=False, compression="zstd", compression_level=19)
         print(f"  merged into {MAIN_PARQUET}: now {len(merged)} rows", file=sys.stderr)
 
 
