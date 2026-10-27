@@ -3,7 +3,8 @@
 
 # --- Core data ---
 pandas==2.3.3
-numpy==2.3.4
+numpy==2.2.6; python_version < "3.11"   # 2.3.x needs >=3.11; 2.2.x has no 3.14 wheel
+numpy==2.3.4; python_version >= "3.11"
 pyarrow==23.0.1          # parquet read/write (dataset outputs)
 openpyxl==3.1.5          # styled Excel workbook export
 
@@ -19,8 +20,9 @@ pykrx                    # South Korea: KRX/Naver (unpinned upstream)
 # Europe (Euro Stoxx 50) uses yfinance only — no extra lib.
 
 # --- ML signal engine (US/India scanners + cross-market viability) ---
-scikit-learn==1.8.0      # Ridge/Linear regression directional signal
-scipy==1.16.3
+scikit-learn==1.7.2      # Ridge/Linear regression directional signal
+scipy==1.15.3; python_version < "3.11"   # same split as numpy
+scipy==1.16.3; python_version >= "3.11"
 
 # --- Streaming / storage frameworks (MANDATORY — market_store.py raises
 # MarketStoreUnavailable / CDCPublishError at call time if these aren't
