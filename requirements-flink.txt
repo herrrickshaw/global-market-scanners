@@ -1,0 +1,7 @@
+# Optional: PyFlink consumers (flink_cdc_consumer.py / flink_screens.py). Install on top of requirements.txt
+# in a separate environment: apache-flink 2.3.0 requires pandas<2.3, which conflicts with the main pin.
+apache-flink==2.3.0      # OPTIONAL: flink_cdc_consumer.py / flink_screens.py do the same jobs
+                         #   on PyFlink for when a real multi-node deployment earns its cost.
+                         #   `brew install apache-flink` has NO `brew services` entry — a
+                         #   standalone cluster is not a persistent system service like
+                         #   Cassandra/Kafka are, so don't depend on it staying up unattended.
