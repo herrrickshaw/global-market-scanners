@@ -24,8 +24,11 @@ SIGNAL_RESEARCH.md):
                    the mailer's own regime definition)
   4. Orthogonality Fama-MacBeth joint coefficients (incremental value)
   5. Costs         quintile spread, turnover, break-even and net-of-cost
-                   using apply_costs.COSTS_PCT, plus Deflated Sharpe
+                   using apply_costs.COSTS_PCT, plus Deflated Sharpe,
+                   CVaR95 and max drawdown
   6. Combination   purged walk-forward: best single vs IC-weighted vs ridge
+  5b. PBO         probability of backtest overfitting (CSCV) per horizon
+  5c. Timing       quintile spread split into overnight and intraday legs
   7. Health        trailing-52-week IC vs full history -> signal_health.json
 
 Data: the warehouse OHLCV panels resolved through ~/scripts/market_paths.py
@@ -67,8 +70,9 @@ UNIVERSE_N = {"IN": 750, "US": 1500, "JP": 1000, "KR": 750, "EU": 600}
 HORIZONS = (5, 10, 21, 63)          # trading days; mailer's rules are scored at 10
 START = "2017-07-01"                # 1y warm-up for the 252d lookbacks
 ETF_RE = re.compile(r"BEES|ETF|LIQUID|GILT|NIFTY|SENSEX")
+OI_HORIZONS = (5, 21)                # overnight/intraday split horizons
 MAILER_RULE_SIGNAL = {"revert": "rev5", "mom_st": "mom21", "mom126": "mom126",
-                      "trend": "trend"}
+                      "trend": "trend", "hi52": "hi52"}
 
 
 def ohlcv_root(cli: str | None) -> Path:
@@ -81,7 +85,7 @@ def ohlcv_root(cli: str | None) -> Path:
 
 # ── data ─────────────────────────────────────────────────────────────────────
 def load_market(root: Path, mkt: str) -> dict[str, pd.DataFrame]:
-    """Daily Close/High/Volume panels for names that were in the top-N by
+    """Daily Open/Close/High/Volume panels for names that were in the top-N by
     median dollar volume in at least one calendar year (PIT-friendly pre-filter;
     the per-date universe gate below is strictly trailing)."""
     n = UNIVERSE_N[mkt]
@@ -95,15 +99,22 @@ def load_market(root: Path, mkt: str) -> dict[str, pd.DataFrame]:
           SELECT DISTINCT Symbol FROM (
             SELECT Symbol, rank() OVER (PARTITION BY y ORDER BY mdv DESC) r FROM dv)
           WHERE r <= {int(n * 1.3)})
-        SELECT Date, o.Symbol, Close, High, Volume
+        SELECT Date, o.Symbol, Open, Close, High, Volume
         FROM '{glob}' o JOIN keep USING (Symbol)
         WHERE Close > 0
     """).df()
     if mkt == "IN":
         df = df[~df["Symbol"].str.upper().str.contains(ETF_RE)]
     df["Date"] = pd.to_datetime(df["Date"])
+    # a still-forming last bar (partial vendor refresh) shows up as a date with
+    # far fewer rows than usual; drop it rather than score on half a market
+    per_day = df.groupby("Date").size().sort_index()
+    if len(per_day) > 21 and per_day.iloc[-1] < 0.5 * per_day.iloc[-21:-1].median():
+        print(f"  {mkt}: dropping partial bar {per_day.index[-1].date()} "
+              f"({per_day.iloc[-1]} rows vs median {per_day.iloc[-21:-1].median():.0f})")
+        df = df[df["Date"] < per_day.index[-1]]
     out = {}
-    for col in ("Close", "High", "Volume"):
+    for col in ("Open", "Close", "High", "Volume"):
         out[col] = (df.pivot_table(index="Date", columns="Symbol", values=col, aggfunc="last")
                       .sort_index().astype("float32"))
     return out
@@ -149,11 +160,19 @@ def build_signals(p: dict[str, pd.DataFrame], mkt: str):
     sig["zone"] = zone.where(C.notna())
 
     # forward returns: enter next close (the mailer is read in the morning)
-    fwd = {}
+    fwd, fbads = {}, {}
     for h in HORIZONS:
         f = C.shift(-(h + 1)) / C.shift(-1) - 1
-        fbad = bad[::-1].rolling(h + 1, min_periods=1).max()[::-1].shift(-1) > 0
-        fwd[h] = f.mask(fbad)
+        fbads[h] = bad[::-1].rolling(h + 1, min_periods=1).max()[::-1].shift(-1) > 0
+        fwd[h] = f.mask(fbads[h])
+    # same holding window split into overnight and intraday log legs (raw bars,
+    # so a missing day inside the window drops the observation)
+    O = p["Open"].reindex_like(C)
+    oi = {}
+    for h in OI_HORIZONS:
+        on, intra = sv.overnight_intraday_fwd(O, p["Close"].reindex_like(C), h)
+        both = on.notna() & intra.notna() & ~fbads[h]
+        oi[h] = (on.where(both), intra.where(both))
 
     mdv63 = dv.rolling(63, min_periods=40).median()
     vol63 = r1.rolling(63, min_periods=50).std()
@@ -169,10 +188,12 @@ def build_signals(p: dict[str, pd.DataFrame], mkt: str):
 
     S = {k: v.loc[idx].where(gate) for k, v in sig.items()}
     F = {h: v.loc[idx].where(gate) for h, v in fwd.items()}
+    OI = {h: (on.loc[idx].where(gate), intra.loc[idx].where(gate))
+          for h, (on, intra) in oi.items()}
     X = {"mdv": mdv63.loc[idx].where(gate), "vol": vol63.loc[idx].where(gate)}
     breadth = above200.loc[idx].where(gate).mean(axis=1)
     regime = pd.Series(np.where(breadth < 0.45, "bear", "bull"), index=idx)
-    return S, F, X, regime
+    return S, F, X, regime, OI
 
 
 # ── studies ──────────────────────────────────────────────────────────────────
@@ -180,13 +201,19 @@ def lags_for(h: int) -> int:
     return max(1, math.ceil(h / 5))
 
 
+def tstat(x) -> float:
+    """t of a non-overlapping per-period series."""
+    x = np.asarray(x, dtype=float)
+    return float(x.mean() / x.std(ddof=1) * math.sqrt(len(x))) if len(x) > 2 else np.nan
+
+
 def study_market(mkt: str, root: Path) -> dict:
     t0 = time.time()
     p = load_market(root, mkt)
-    S, F, X, regime = build_signals(p, mkt)
+    S, F, X, regime, OI = build_signals(p, mkt)
     del p
     sigs = [k for k in S if k != "zone"]
-    res = {"ic": [], "ic_series": {}, "fm": None, "cost": [], "wf": None,
+    res = {"ic": [], "ic_series": {}, "fm": None, "cost": [], "wf": None, "oi": [],
            "health": {}, "regime_share_bear": float((regime == "bear").mean()),
            "n_dates": len(regime), "universe": UNIVERSE_N[mkt],
            "current_regime": regime.iloc[-1] if len(regime) else None}
@@ -225,6 +252,7 @@ def study_market(mkt: str, root: Path) -> dict:
             q = sv.quantile_spread_turnover(S[k].iloc[::step] * sgn, F[h].iloc[::step])
             ppy = 252 / h
             ls_net = q["ls_spread"] - 2 * q["turnover_ls"] * cost_rt
+            tr = sv.tail_risk(q["ls_series"] - 2 * q["turnover_ls"] * cost_rt)
             lo_net = q["long_excess"] - q["turnover_long"] * cost_rt
             res["cost"].append({
                 "market": mkt, "signal": k, "h": h, "direction": "+" if sgn > 0 else "-",
@@ -235,8 +263,27 @@ def study_market(mkt: str, root: Path) -> dict:
                 "long_excess_pct": 100 * q["long_excess"], "turnover_long": q["turnover_long"],
                 "long_net_ann_pct": 100 * lo_net * ppy,
                 "ls_sharpe_ann": q["ls_sharpe"] * math.sqrt(ppy),
+                "ls_cvar95_pct": 100 * tr["cvar"], "ls_worst_pct": 100 * tr["worst"],
+                "ls_skew": tr["skew"], "ls_maxdd_pct": 100 * tr["max_dd"],
                 "_ls_series": q["ls_series"] - 2 * q["turnover_ls"] * cost_rt,
+                "_ls_gross": pd.Series(q["ls_series"], index=q["dates"]),
+                "_period_cost": 2 * q["turnover_ls"] * cost_rt,
                 "n_periods": q["n_periods"]})
+
+    # overnight vs intraday legs of the same quintile spread (log returns)
+    for h in OI_HORIZONS:
+        step = lags_for(h)
+        on, intra = OI[h]
+        for k in sigs:
+            sgn = 1.0 if (S[k].pipe(sv.rank_ic_series, F[h]).mean() >= 0) else -1.0
+            s_ = S[k].iloc[::step] * sgn
+            a = sv.quantile_spread_turnover(s_, on.iloc[::step])["ls_series"]
+            b = sv.quantile_spread_turnover(s_, intra.iloc[::step])["ls_series"]
+            res["oi"].append({
+                "market": mkt, "signal": k, "h": h, "direction": "+" if sgn > 0 else "-",
+                "n_periods": len(a), "total_pct": 100 * float(np.mean(a + b)),
+                "overnight_pct": 100 * float(np.mean(a)), "overnight_t": tstat(a),
+                "intraday_pct": 100 * float(np.mean(b)), "intraday_t": tstat(b)})
 
     # purged walk-forward combination (10d horizon, embargo = overlap + 1)
     res["wf"] = sv.purged_walk_forward({k: S[k] for k in sigs}, F[10],
@@ -291,18 +338,50 @@ def main():
     sr_var = float(np.nanvar(srs, ddof=1))
     cost["dsr"] = [sv.deflated_sharpe(s, n_trials=len(cost), sr_trials_var=sr_var)[1]
                    if len(s) > 10 else np.nan for s in cost["_ls_series"]]
-    cost.drop(columns="_ls_series").to_csv(OUT / "costs.csv", index=False)
+    pbo = pbo_table(cost)
+    pbo.to_csv(OUT / "pbo_cscv.csv", index=False)
+    cost.drop(columns=["_ls_series", "_ls_gross", "_period_cost"]).to_csv(OUT / "costs.csv", index=False)
+    oi = pd.DataFrame([r for m in results.values() for r in m["oi"]])
+    oi.to_csv(OUT / "overnight_intraday.csv", index=False)
 
     health = {m: {"asof": str(results[m]["ic_series"]["rev5"].index[-1].date()),
                   "current_regime": results[m]["current_regime"],
                   "signals": results[m]["health"]} for m in results}
     (OUT / "signal_health.json").write_text(json.dumps(health, indent=1, default=float))
 
-    write_markdown(ic, fm, wf, cost, results, mailer_rules())
+    write_markdown(ic, fm, wf, cost, results, mailer_rules(), pbo, oi)
     print(f"wrote {OUT}/ and SIGNAL_RESEARCH_RESULTS.md")
 
 
-def write_markdown(ic, fm, wf, cost, results, rules):
+def pbo_table(cost: pd.DataFrame) -> pd.DataFrame:
+    """PBO per horizon over every market x signal long-short variant, net of
+    cost. Calendars differ by market, so each formation date is mapped to its
+    non-overlapping holding bucket since START before aligning. 'both signs'
+    also admits the opposite trade of every signal, since the sign the study
+    reports was itself picked on the full sample."""
+    rows = []
+    for h in sorted(cost.h.unique()):
+        step = lags_for(h)
+        cols = {}
+        for _, r in cost[cost.h == h].iterrows():
+            g = r["_ls_gross"]
+            if len(g) < 10:
+                continue
+            b = ((g.index - pd.Timestamp(START)).days // 7) // step
+            g = g.groupby(b).mean()
+            key = f"{r.market}:{r.signal}"
+            cols[key + ":chosen"] = g - r["_period_cost"]
+            cols[key + ":opposite"] = -g - r["_period_cost"]
+        M = pd.DataFrame(cols)
+        for label, sub in (("chosen sign", M[[c for c in M if c.endswith(":chosen")]]),
+                           ("both signs", M)):
+            T = len(sub.dropna(how="any"))
+            res = sv.pbo_cscv(sub, n_blocks=16 if T >= 64 else 8)
+            rows.append({"h": h, "variants": label, **res})
+    return pd.DataFrame(rows)
+
+
+def write_markdown(ic, fm, wf, cost, results, rules, pbo, oi):
     L = ["# Signal research results — mailer signals under desk-grade validation", "",
          f"_Generated by `signal_research.py` on {time.strftime('%Y-%m-%d')}. "
          "Method and job-description mapping: [SIGNAL_RESEARCH.md](SIGNAL_RESEARCH.md)._", ""]
@@ -391,18 +470,57 @@ def write_markdown(ic, fm, wf, cost, results, rules):
           "`apply_costs.COSTS_PCT`. DSR = probability the Sharpe beats the best of "
           f"{len(cost)} zero-skill trials (>0.95 = credible).", "",
           "| market | signal | h | dir | LS spread/period % | turnover | break-even bps | "
-          "cost bps | LS net ann % | long-only net ann % | DSR |",
-          "|---|---|---|---|---|---|---|---|---|---|---|"]
+          "cost bps | LS net ann % | long-only net ann % | DSR | CVaR95/period % | "
+          "max DD % |",
+          "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     top = cost.sort_values("ls_net_ann_pct", ascending=False)
     for _, r in top.iterrows():
         if r.ls_net_ann_pct <= 0 and r.long_net_ann_pct <= 0:
             continue
         L.append(f"| {r.market} | {r.signal} | {r.h} | {r.direction} | {fmt(r.ls_spread_pct, 2)} | "
                  f"{fmt(r.turnover_ls, 2)} | {fmt(r.breakeven_bps_ls, 0)} | {fmt(r.cost_bps, 0)} | "
-                 f"{fmt(r.ls_net_ann_pct, 1)} | {fmt(r.long_net_ann_pct, 1)} | {fmt(r.dsr, 2)} |")
+                 f"{fmt(r.ls_net_ann_pct, 1)} | {fmt(r.long_net_ann_pct, 1)} | {fmt(r.dsr, 2)} | "
+                 f"{fmt(r.ls_cvar95_pct, 1)} | {fmt(r.ls_maxdd_pct, 0)} |")
     L += ["", f"_Rows where both long-short and long-only lose after costs are omitted "
           f"({int(((cost.ls_net_ann_pct <= 0) & (cost.long_net_ann_pct <= 0)).sum())} of "
-          f"{len(cost)}); full table in `reports/signal_research/costs.csv`._", ""]
+          f"{len(cost)}); full table in `reports/signal_research/costs.csv`._ "
+          "CVaR95 = mean of the worst 5% of net long-short periods; max DD = worst "
+          "peak-to-trough of the compounded net long-short series. At 63d there are "
+          "~37 periods, so CVaR95 is the worst one or two.", ""]
+
+    L += ["## 5b. Probability of Backtest Overfitting (CSCV)", "",
+          "Bailey, Borwein, López de Prado & Zhu (2017). The net long-short series of every "
+          "market x signal at one horizon form the candidate set; the history is cut into "
+          "blocks and every half of the blocks in turn is in-sample. PBO = share of splits "
+          "where the in-sample best Sharpe lands at or below the out-of-sample median "
+          "(0.5 = pure luck, near 0 = the selection carries over). Sharpe is per period.", "",
+          "| h | variants | strategies | periods | splits | PBO | IS-best Sharpe | "
+          "median OOS Sharpe of IS-best | P(OOS loss) | degradation slope |",
+          "|---|---|---|---|---|---|---|---|---|---|"]
+    for _, r in pbo.iterrows():
+        L.append(f"| {r.h} | {r.variants} | {r["N"]} | {r["T"]} | {r.n_splits} | {fmt(r.pbo, 2)} | "
+                 f"{fmt(r.is_best_sr, 2)} | {fmt(r.oos_sr_of_is_best, 2)} | "
+                 f"{fmt(r.p_oos_loss, 2)} | {fmt(r.degradation_slope, 2)} |")
+    L += ["", "_'both signs' adds the opposite trade of every signal, because the direction "
+          "reported in section 5 was chosen on the full sample. Degradation slope = "
+          "regression of OOS on IS Sharpe of the chosen strategy across splits (negative = "
+          "the better it looks in-sample, the worse it does out of sample)._", ""]
+
+    L += ["## 5c. Where the spread is earned — overnight vs intraday", "",
+          "Lou, Polk & Skouras (2019). The same quintile long-short (signal oriented as in "
+          "section 5, gross of cost) on non-overlapping holdings, with the forward log "
+          "return split into close→open and open→close legs; the two legs add to the "
+          "close-to-close log return. t is on the per-period series. Rows shown where either "
+          "leg has |t| >= 2.", "",
+          "| market | signal | h | dir | total %/period | overnight % (t) | intraday % (t) |",
+          "|---|---|---|---|---|---|---|"]
+    sig_oi = oi[(oi.overnight_t.abs() >= 2) | (oi.intraday_t.abs() >= 2)]
+    for _, r in sig_oi.sort_values(["h", "market", "signal"]).iterrows():
+        L.append(f"| {r.market} | {r.signal} | {r.h} | {r.direction} | {fmt(r.total_pct, 2)} | "
+                 f"{fmt(r.overnight_pct, 2)} ({fmt(r.overnight_t, 1)}) | "
+                 f"{fmt(r.intraday_pct, 2)} ({fmt(r.intraday_t, 1)}) |")
+    L += ["", f"_{len(sig_oi)} of {len(oi)} rows shown; full table in "
+          "`reports/signal_research/overnight_intraday.csv`._", ""]
 
     L += ["## 6. Purged walk-forward combination (10d, OOS mean IC per fold)", "",
           "| market | fold | test window | best single (train-chosen) | best_single | "

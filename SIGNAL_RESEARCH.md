@@ -12,15 +12,17 @@ python signal_research.py --markets IN KR    # subset
 pytest -q tests/test_signal_validation.py    # 17 tests, synthetic planted-answer panels
 ```
 
-## Key findings (run of 2026-10-26, data through 2026-10-26)
+## Key findings (run of 2026-10-27, data through 2026-10-26)
 
 1. **Only India and Korea have robust daily-bar technical signals on liquid
    names.** In the US, Japan and Europe almost nothing survives HAC t-stats
-   plus BH-FDR. Of 240 tests, 94 survive, and they come mostly from IN and KR.
-2. **The mailer's live rules are mostly noise outside IN/KR.** Seven of the ten
-   (market, regime) rules in `zone_regime.json` score WEAK. **Korea's bull rule
-   (`trend`) is WRONG-WAY** (10d IC −0.022, t −2.6). Its bear rule (`revert`)
-   is the strongest live rule anywhere (t 4.6).
+   plus BH-FDR. Of 240 tests, 89 survive, and they come mostly from IN and KR.
+   (The 2026-10-26 run had 94; the difference is one more complete European
+   trading day.)
+2. **Since 2026-10-26 the mailer pins `hi52` as the IN and KR bull rule**,
+   and both score OK and HEALTHY (10d IC 0.047, t 4.3; 0.054, t 5.7). The
+   IN and KR bear rule (`revert`) is also OK (t 3.5 and 4.6). The US, Japan and
+   Europe rules (`mom126` bull, `revert` bear) are all WEAK/NOISE.
 3. **India momentum is real.** 52-week-high proximity has an IC of 0.04–0.08
    across every horizon (t 3.5–4.0) and clears costs (+6.8%/yr net,
    long-short). It is the best bull-regime signal for India; the mailer
@@ -35,11 +37,34 @@ pytest -q tests/test_signal_validation.py    # 17 tests, synthetic planted-answe
    0.028) and Korea (0.106 vs 0.091), but not in the US, Japan or Europe.
 6. **Nothing clears a Deflated Sharpe of 0.95** once the 165 cost-adjusted
    variants are counted as trials. Daily bars and retail costs are the ceiling.
+7. **The ranking itself is not overfit, but the edge is small.** Probability
+   of Backtest Overfitting (CSCV over every market x signal) is 0.02 at 5d,
+   0.13–0.18 at 21d and 0.03–0.13 at 63d, so the in-sample best usually stays
+   above the out-of-sample median. Its out-of-sample Sharpe is roughly half to a
+   quarter of the in-sample one, though (21d: 0.40 → 0.09 per period), and it
+   loses out of sample in 25–28% of 21d splits. That is consistent with
+   finding 6: the selection is real, but the edge is too small to clear the
+   deflated hurdle.
+8. **Where the spread is earned differs by market.** In the US, 12-1 momentum
+   and the golden spread are earned **overnight** (mom12_1 21d: +1.33%
+   overnight, t 4.6; −0.19% intraday), as Lou, Polk & Skouras (2019) find. In
+   India, Korea and Europe, momentum, hi52 and low-vol are earned
+   **intraday** against a losing overnight leg (IN hi52 21d: −1.97% overnight,
+   t −7.0; +3.29% intraday, t 6.1). Reversal and RSI-oversold go the other way
+   in IN/EU/JP: they gain overnight and give it back intraday. See the India
+   caveat under Limits before reading India's split literally.
+9. **The surviving long-short books have deep drawdowns.** Of the 69
+   long-short rows that make money after costs, the median max drawdown is
+   −34%, and 59% have negative skew. India `mom12_1` 21d (+14.6%/yr net) has
+   a CVaR95 of −15.9% per period and a −43% max drawdown. India `hi52` 21d
+   (+6.8%/yr) has −19.0% and −47%.
 
-Proposed mailer changes, for review rather than applied (they live in
-`market-pipeline`): KR bull rule `trend` → `lowvol` or `hi52`; IN bull rule
-`trend` → `hi52`; and read `signal_health.json` each morning so a FLIPPED
-rule is surfaced before it trades.
+Mailer changes: the proposed IN and KR bull rule `trend` → `hi52` is now
+pinned in `zone_regime.json`. Still open, for review in `market-pipeline`:
+the US/JP/EU rules have no signal with a real edge, so either drop them or
+replace them with that market's strongest signal in section 3 of the results;
+and read `signal_health.json` each morning so a FLIPPED rule is surfaced
+before it trades.
 
 ## Why: what the job descriptions ask for
 
@@ -118,6 +143,18 @@ mailer's zone rules are scored on.
 **Regime.** Bear = fewer than 45% of the liquid universe above their 200-day
 average. This is the mailer's breadth definition (`strategy_regime_survival.py`).
 
+**Overfitting, tail risk and return timing.** Section 5 of the results adds a
+CVaR95 (mean of the worst 5% of net periods) and a max drawdown (compounded
+net series) to every long-short row. Section 5b computes the Probability of
+Backtest Overfitting by combinatorially symmetric cross-validation (Bailey,
+Borwein, López de Prado & Zhu 2017): per horizon, all market x signal net
+series are aligned by holding bucket, cut into 16 blocks (8 at 63d), and every
+half of the blocks is in turn in-sample. It is run on the reported sign only,
+and again with the opposite trade of every signal added, since the reported
+sign was picked on the full sample. Section 5c splits each quintile spread's
+forward log return into its close→open and open→close legs (Lou, Polk &
+Skouras 2019), at 5d and 21d.
+
 **India data hazard.** The India panel is raw bhavcopy close: splits and
 bonuses look like −50% to −99% crashes. Any signal or forward window that
 contains a 1-day move outside [−50%, +100%] is dropped, and ETF-like symbols
@@ -132,5 +169,17 @@ multi-baggers. The proper fix is adjusted closes.
   impact. Break-even bps is the honest number to compare against your own broker.
 - Weekly formation, daily bars. Nothing here speaks to intraday or HFT roles
   (Quantbox, DeepFin, Graviton's HFT desks); those need tick or order-book data.
+- **Overnight/intraday split, India:** NSE's official close is the
+  volume-weighted price of the last 30 minutes, not the last trade, so
+  "intraday" ends on a VWAP while the next "overnight" leg starts from it. That
+  blurs the split most for illiquid names (`illiq` shows −3.98% overnight vs
+  +4.28% intraday at 21d). Opens equal the prior close on 3% (US) to 12%
+  (Korea) of liquid-name days; tick size and opening auctions explain part of
+  that, but a stale open would push return out of the overnight leg.
+- PBO candidates are correlated: the same signal appears in five markets, and
+  one market's signals overlap. With 37 periods at 63d there are only 70 splits.
+- The loader drops a trailing date with under half the usual row count, which
+  is a still-forming vendor bar (the US bar for 2026-10-26 had 1,075 universe
+  rows against a median of 2,850).
 - Europe mixes currencies. Rank IC is unaffected, but dollar-volume ranks lean
   towards larger-currency listings.

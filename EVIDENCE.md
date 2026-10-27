@@ -43,7 +43,12 @@ weekly formation 2017-07..2026-10, next-close entry, 21-day horizon.
 | US, Korea and China mean-revert | 5-day reversal (`rev5`) significant in **KR** (t 3.6 @10d) and **IN** (t 4.0 @10d); not in US (t 0.6) or JP (t −0.3); CN not in this study | **Partly.** Korea yes; US not on liquid names. |
 | Walk-forward ML overlay ~0.60 OOS directional accuracy (IN) | Purged walk-forward ridge over 11 signals, 10d OOS rank IC: IN 0.045 (vs 0.028 best single), KR 0.106 (vs 0.091) | **Supported in spirit:** combining signals beats the best single signal out of sample in IN and KR; not in US/EU/JP. |
 
-**Multiple-testing note.** 240 market x signal x horizon tests were run; 94
-survive BH-FDR at 5%. No long-short strategy clears a Deflated Sharpe of 0.95
-once all ~165 cost-adjusted variants are counted as trials. That is the honest
+**Multiple-testing note.** 240 market x signal x horizon tests were run; 89
+survive BH-FDR at 5% (94 in the 2026-10-26 run, before one more European
+trading day). No long-short strategy clears a Deflated Sharpe of 0.95
+once all ~165 cost-adjusted variants are counted as trials. The Probability of
+Backtest Overfitting is low (0.02–0.18), so picking the best variant is not
+pure luck, but its out-of-sample Sharpe is a quarter to a half of its
+in-sample one, and the profitable long-short books have a median max drawdown
+of −34%. That is the honest
 ceiling for daily-bar, retail-cost signals in these universes.

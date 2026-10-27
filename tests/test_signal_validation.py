@@ -156,3 +156,61 @@ def test_ic_health_statuses():
     flipped.iloc[-52:] = -0.05 + 0.03 * rng.standard_normal(52)
     assert sv.ic_health(flipped)["status"] == "FLIPPED"
     assert sv.ic_health(pd.Series(0.03 * rng.standard_normal(300)))["status"] == "NOISE"
+
+
+# ── overnight / intraday ─────────────────────────────────────────────────────
+def test_overnight_intraday_legs_add_to_close_to_close():
+    rng = np.random.default_rng(15)
+    idx = pd.bdate_range("2021-01-04", periods=120)
+    C = pd.DataFrame(100 * np.exp(np.cumsum(0.01 * rng.standard_normal((120, 4)), 0)), idx)
+    O = C.shift(1) * np.exp(0.005 * rng.standard_normal((120, 4)))
+    on, intra = sv.overnight_intraday_fwd(O, C, h=5)
+    total = np.log(C.shift(-6) / C.shift(-1))
+    diff = (on + intra - total).abs().max().max()
+    assert diff < 1e-10
+    assert on.iloc[-6:].isna().all().all()        # window runs past the data
+
+
+def test_overnight_intraday_isolates_planted_gap_return():
+    idx = pd.bdate_range("2021-01-04", periods=30)
+    C = pd.DataFrame({"a": 100.0}, idx)
+    O = C * 1.01                                   # every bar gaps up 1%, gives it back
+    on, intra = sv.overnight_intraday_fwd(O, C, h=3)
+    assert on["a"].dropna().iloc[0] == pytest.approx(3 * np.log(1.01))
+    assert intra["a"].dropna().iloc[0] == pytest.approx(-3 * np.log(1.01))
+
+
+# ── tail risk ────────────────────────────────────────────────────────────────
+def test_tail_risk_known_series():
+    r = np.r_[np.full(19, 0.01), -0.10]           # 20 periods, one crash
+    tr = sv.tail_risk(r, alpha=0.05)
+    assert tr["cvar"] == pytest.approx(-0.10)      # worst 5% = the one crash
+    assert tr["worst"] == pytest.approx(-0.10)
+    assert tr["max_dd"] == pytest.approx(-0.10)
+    assert tr["skew"] < 0
+    assert np.isnan(sv.tail_risk([0.01] * 5)["cvar"])
+
+
+# ── PBO ──────────────────────────────────────────────────────────────────────
+def test_pbo_near_half_for_pure_noise():
+    rng = np.random.default_rng(16)
+    perf = pd.DataFrame(0.02 * rng.standard_normal((400, 40)))
+    res = sv.pbo_cscv(perf, n_blocks=10)
+    assert res["n_splits"] == 252                  # C(10, 5)
+    assert 0.25 < res["pbo"] < 0.75
+    assert res["degradation_slope"] < 0.5
+
+
+def test_pbo_near_zero_with_one_real_edge():
+    rng = np.random.default_rng(17)
+    perf = pd.DataFrame(0.02 * rng.standard_normal((400, 40)))
+    perf[0] += 0.01                                # Sharpe 0.5/period
+    res = sv.pbo_cscv(perf, n_blocks=10)
+    assert res["pbo"] < 0.05
+    assert res["oos_sr_of_is_best"] > 0.3
+
+
+def test_quantile_spread_returns_formation_dates():
+    s, f = _panel(T=60, N=200, ic=0.1, seed=18)
+    q = sv.quantile_spread_turnover(s, f)
+    assert len(q["dates"]) == len(q["ls_series"]) == 60

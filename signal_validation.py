@@ -202,7 +202,7 @@ def quantile_spread_turnover(signal: pd.DataFrame, fwd: pd.DataFrame,
     2·τ·c per period (both legs), the long-only book τ_long·c.
     """
     s, f = signal.align(fwd, join="inner")
-    ls, lo, tl, ts = [], [], [], []
+    ls, lo, tl, ts, ds = [], [], [], [], []
     prev_top = prev_bot = None
     for d in s.index:
         row = s.loc[d]
@@ -217,6 +217,7 @@ def quantile_spread_turnover(signal: pd.DataFrame, fwd: pd.DataFrame,
         ret = fr[ok]
         ls.append(ret[list(top)].mean() - ret[list(bot)].mean())
         lo.append(ret[list(top)].mean() - ret.mean())
+        ds.append(d)
         if prev_top:
             tl.append(1 - len(top & prev_top) / max(len(top), 1))
             ts.append(1 - len(bot & prev_bot) / max(len(bot), 1))
@@ -237,7 +238,95 @@ def quantile_spread_turnover(signal: pd.DataFrame, fwd: pd.DataFrame,
         "breakeven_rt_cost_ls": spread / (2 * tau) if tau and tau > 0 else float("nan"),
         "breakeven_rt_cost_long": excess / tau_l if tau_l and tau_l > 0 else float("nan"),
         "ls_series": ls,
+        "dates": pd.DatetimeIndex(ds),
     }
+
+
+# ── overnight / intraday decomposition ───────────────────────────────────────
+def overnight_intraday_fwd(open_: pd.DataFrame, close: pd.DataFrame, h: int,
+                           lag: int = 1) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Forward h-day log return split into overnight and intraday legs
+    (Lou, Polk & Skouras 2019, "A Tug of War").
+
+    Entry at close t+lag, exit at close t+lag+h. Over the holding days d,
+    log(C_exit/C_entry) = Σ log(O_d/C_{d-1}) + Σ log(C_d/O_d) exactly, so the
+    two legs add up to the close-to-close log return. A missing or
+    non-positive bar inside the window gives NaN.
+    """
+    o = open_.where(open_ > 0)
+    c = close.where(close > 0)
+    on = np.log(o / c.shift(1))
+    intra = np.log(c / o)
+    sh = -(h + lag)
+    return (on.rolling(h, min_periods=h).sum().shift(sh),
+            intra.rolling(h, min_periods=h).sum().shift(sh))
+
+
+# ── tail risk ────────────────────────────────────────────────────────────────
+def tail_risk(returns, alpha: float = 0.05) -> dict:
+    """CVaR / VaR at `alpha`, worst period, skew and max drawdown of a
+    per-period (non-overlapping) return series, compounded for drawdown."""
+    r = np.asarray(returns, dtype=float)
+    r = r[np.isfinite(r)]
+    nan = float("nan")
+    if len(r) < 10:
+        return {"cvar": nan, "var": nan, "worst": nan, "skew": nan, "max_dd": nan}
+    srt = np.sort(r)
+    k = max(1, int(np.floor(alpha * len(r))))
+    eq = np.cumprod(1 + r)
+    peak = np.maximum.accumulate(np.maximum(eq, 1.0))
+    return {"cvar": float(srt[:k].mean()), "var": float(srt[k - 1]),
+            "worst": float(srt[0]), "skew": float(pd.Series(r).skew()),
+            "max_dd": float((eq / peak - 1).min())}
+
+
+# ── probability of backtest overfitting (CSCV) ───────────────────────────────
+def pbo_cscv(perf: pd.DataFrame, n_blocks: int = 16) -> dict:
+    """Probability of Backtest Overfitting by combinatorially symmetric
+    cross-validation (Bailey, Borwein, López de Prado & Zhu 2017).
+
+    perf: T x N per-period returns, one column per strategy variant, rows on a
+    common calendar (rows with any NaN are dropped). Rows are cut into
+    n_blocks contiguous blocks; each choice of half the blocks is the
+    in-sample set and its complement the out-of-sample set. For each split
+    the in-sample best (by Sharpe) is ranked out of sample; PBO is the share
+    of splits where it lands at or below the OOS median (logit <= 0).
+    """
+    from itertools import combinations
+    M = perf.dropna(how="any").to_numpy(dtype=float)
+    T, N = M.shape
+    out = {"T": int(T), "N": int(N), "n_splits": 0, "pbo": float("nan"),
+           "is_best_sr": float("nan"), "oos_sr_of_is_best": float("nan"),
+           "p_oos_loss": float("nan"), "degradation_slope": float("nan")}
+    if N < 2 or T < 2 * n_blocks:
+        return out
+    blocks = np.array_split(np.arange(T), n_blocks)
+    s1 = np.stack([M[b].sum(0) for b in blocks])
+    s2 = np.stack([(M[b] ** 2).sum(0) for b in blocks])
+    cnt = np.array([len(b) for b in blocks], dtype=float)
+    W = np.array([[i in c for i in range(n_blocks)]
+                  for c in combinations(range(n_blocks), n_blocks // 2)], dtype=float)
+
+    def sharpe(w):
+        n = (w @ cnt)[:, None]
+        mu = (w @ s1) / n
+        var = ((w @ s2) / n - mu ** 2) * n / (n - 1)
+        return np.where(var > 0, mu / np.sqrt(np.where(var > 0, var, 1.0)), 0.0)
+
+    is_sr, oos_sr = sharpe(W), sharpe(1 - W)
+    best = is_sr.argmax(axis=1)
+    rows = np.arange(len(W))
+    oos_best = oos_sr[rows, best]
+    rank = (oos_sr < oos_best[:, None]).sum(axis=1) + 1          # 1..N
+    omega = rank / (N + 1)
+    lam = np.log(omega / (1 - omega))
+    is_best = is_sr[rows, best]
+    out.update({"n_splits": int(len(W)), "pbo": float((lam <= 0).mean()),
+                "is_best_sr": float(is_best.mean()),
+                "oos_sr_of_is_best": float(np.median(oos_best)),
+                "p_oos_loss": float((oos_best < 0).mean()),
+                "degradation_slope": float(np.polyfit(is_best, oos_best, 1)[0])})
+    return out
 
 
 # ── purged walk-forward combination ──────────────────────────────────────────
