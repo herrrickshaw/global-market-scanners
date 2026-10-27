@@ -3,8 +3,8 @@
 
 # --- Core data ---
 pandas==2.3.3
-numpy==2.0.2
-pyarrow==21.0.0          # parquet read/write (dataset outputs)
+numpy==2.3.4
+pyarrow==23.0.1          # parquet read/write (dataset outputs)
 openpyxl==3.1.5          # styled Excel workbook export
 
 # --- Market data (shared) ---
@@ -19,8 +19,8 @@ pykrx                    # South Korea: KRX/Naver (unpinned upstream)
 # Europe (Euro Stoxx 50) uses yfinance only — no extra lib.
 
 # --- ML signal engine (US/India scanners + cross-market viability) ---
-scikit-learn==1.6.1      # Ridge/Linear regression directional signal
-scipy==1.13.1
+scikit-learn==1.8.0      # Ridge/Linear regression directional signal
+scipy==1.16.3
 
 # --- Streaming / storage frameworks (MANDATORY — market_store.py raises
 # MarketStoreUnavailable / CDCPublishError at call time if these aren't
@@ -28,7 +28,7 @@ scipy==1.13.1
 # yfinance-direct fallback path anymore). Python CLIENTS only — the SERVERS
 # are system installs (macOS: `brew install cassandra kafka`, started via
 # `brew services` — both of these have real launchd services and stay up).
-cassandra-driver==3.29.3 # required: OHLC cache in Cassandra (market_store.py)
+cassandra-driver==3.30.1 # required: OHLC cache in Cassandra (market_store.py)
 confluent-kafka==2.14.2  # required: CDC publish (market_store.py) + work-queue (stream_pipeline.py)
                          #   consumed by kafka_cdc_consumer.py / kafka_signal_consumer.py (pure
                          #   Python, no JVM) — the default real-time consumers.
