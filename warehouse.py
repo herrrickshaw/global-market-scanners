@@ -115,7 +115,7 @@ def refresh_ohlc_partition(market: str, new_parquet: str) -> dict:
     new = pd.read_parquet(new_parquet)
     merged = incremental.append_new_dates(base, new, date_col="Date", key_col="Symbol")
     added = len(merged) - len(base)
-    merged.to_parquet(base_path, index=False, compression="snappy")
+    merged.to_parquet(base_path, index=False, compression="zstd", compression_level=19)
     return {"market": market, "rows_before": len(base), "rows_added": added,
             "rows_after": len(merged)}
 
