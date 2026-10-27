@@ -132,6 +132,8 @@ classification → fundamentals on breakout candidates → styled Excel export**
 - [Watchlists](WATCHLISTS.md) — separate fundamentally-strong & being-accumulated lists (+ intersection)
 - [Accumulation screener](ACCUMULATION_SCREENER.md) — CMF/accumulation screen validated against 1-month & 6-month forward returns
 - [Corporate actions](CORPORATE_ACTIONS.md) — stock-split (yfinance) & rights-issue/dilution candidate screeners
+- [Signal research](SIGNAL_RESEARCH.md) — the mailer's signals under desk-grade validation (HAC t, BH-FDR, neutral IC, Fama-MacBeth, costs, Deflated Sharpe, purged walk-forward, live health); [results](SIGNAL_RESEARCH_RESULTS.md)
+- [Evidence map](EVIDENCE.md) — every headline claim mapped to its source file and to an independent re-test
 - [Frontier gaps](FRONTIER_GAPS.md) — the scout's 7 frontier themes all closed (seasonality/network/crowding/NLP/options/ESG/microstructure)
 - [Earnings × liquidity](EARNINGS_LIQUIDITY.md) — does liquidity/volume/price condition PEAD? (announcement volume surge + drift study)
 
