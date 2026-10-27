@@ -32,11 +32,8 @@ cassandra-driver==3.29.3 # required: OHLC cache in Cassandra (market_store.py)
 confluent-kafka==2.14.2  # required: CDC publish (market_store.py) + work-queue (stream_pipeline.py)
                          #   consumed by kafka_cdc_consumer.py / kafka_signal_consumer.py (pure
                          #   Python, no JVM) — the default real-time consumers.
-apache-flink==2.3.0      # OPTIONAL: flink_cdc_consumer.py / flink_screens.py do the same jobs
-                         #   on PyFlink for when a real multi-node deployment earns its cost.
-                         #   `brew install apache-flink` has NO `brew services` entry — a
-                         #   standalone cluster is not a persistent system service like
-                         #   Cassandra/Kafka are, so don't depend on it staying up unattended.
+# apache-flink (OPTIONAL, PyFlink consumers) moved to requirements-flink.txt: its pandas<2.3 bound
+# conflicts with the pandas==2.3.3 pin above, so `pip install -r requirements.txt` could not resolve.
 
 # Notes:
 #  - Python 3.9+; on macOS some NSE history libs need browser cookies,
