@@ -99,6 +99,24 @@ def test_neutralize_removes_planted_exposure():
     assert max(abs(c) for c in corr) < 0.05
 
 
+def test_neutralize_collinear_signal_is_not_identifiable():
+    # lowvol = -vol63 neutralised on vol63: the residual is round-off, so the
+    # neutral IC must come out NaN rather than the IC of noise.
+    rng = np.random.default_rng(6)
+    idx = pd.date_range("2021-01-01", periods=30, freq="W-FRI")
+    cols = [f"S{i}" for i in range(200)]
+    vol = pd.DataFrame(rng.lognormal(size=(30, 200)), idx, cols)
+    mdv = pd.DataFrame(rng.lognormal(size=(30, 200)), idx, cols)
+    fwd = pd.DataFrame(rng.standard_normal((30, 200)), idx, cols)
+    res = sv.neutralize(-vol, [mdv, vol])
+    assert res.isna().all().all()
+    nic = sv.rank_ic_series(res, fwd)
+    assert np.isnan(sv.newey_west_t(nic, 2)[0])
+    # a signal that merely shares the exposure keeps its own component
+    partial = -vol + 0.5 * vol.std().mean() * rng.standard_normal((30, 200))
+    assert sv.neutralize(partial, [mdv, vol]).notna().all().all()
+
+
 # ── Fama-MacBeth ─────────────────────────────────────────────────────────────
 def test_fama_macbeth_flags_redundant_copy():
     s, f = _panel(T=150, N=200, ic=0.2, seed=6)

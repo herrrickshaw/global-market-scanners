@@ -130,12 +130,19 @@ def deflated_sharpe(returns: pd.Series | np.ndarray, n_trials: int,
 
 
 # ── neutralisation ───────────────────────────────────────────────────────────
-def neutralize(signal: pd.DataFrame, exposures: list[pd.DataFrame]) -> pd.DataFrame:
+def neutralize(signal: pd.DataFrame, exposures: list[pd.DataFrame],
+               collinear_tol: float = 1e-12) -> pd.DataFrame:
     """Cross-sectional residual of the signal's rank on the exposures' ranks.
 
     Per date: OLS of rank(signal) on [1, rank(exp_1), ..., rank(exp_k)] across
     names, keep the residual. Removes what the signal shares with e.g. size /
     liquidity / volatility so the remaining IC is the signal's own.
+
+    A signal that is (rank-)collinear with an exposure has no own component:
+    its residual is floating-point round-off (~1e-16) and any IC on it is the
+    IC of noise. Those dates are left NaN, so the neutral IC reports NaN
+    (not identifiable) instead of a spurious number. `collinear_tol` is the
+    residual-to-signal rank-dispersion ratio below which that applies.
     """
     out = pd.DataFrame(np.nan, index=signal.index, columns=signal.columns)
     rs = signal.rank(axis=1, pct=True)
@@ -147,8 +154,11 @@ def neutralize(signal: pd.DataFrame, exposures: list[pd.DataFrame]) -> pd.DataFr
         if ok.sum() < X.shape[1] + 10:
             continue
         beta, *_ = np.linalg.lstsq(X[ok], y[ok], rcond=None)
+        e = y[ok] - X[ok] @ beta
+        if e.std() <= collinear_tol * y[ok].std():
+            continue
         res = np.full_like(y, np.nan)
-        res[ok] = y[ok] - X[ok] @ beta
+        res[ok] = e
         out.loc[d] = res
     return out
 

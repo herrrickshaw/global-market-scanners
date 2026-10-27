@@ -165,6 +165,15 @@ multi-baggers. The proper fix is adjusted closes.
 
 - No sector neutralisation: the warehouse has no PIT sector map for all five
   markets. Neutral IC removes liquidity and volatility only.
+- `lowvol` has no neutral IC. It is `-vol63` and the volatility exposure is
+  `vol63`, so its rank is an exact linear function of the exposure rank and the
+  neutralised residual is floating-point round-off (median |residual| ≈ 2e-16,
+  against ≈ 0.24 for `rev5`). Earlier runs printed a number there; it was the IC
+  of round-off noise and depended on the OLS solver (numpy `lstsq` and the
+  kdb+/q port's normal equations disagreed on it). `neutralize` now leaves any
+  date NaN when the residual's dispersion is below 1e-12 of the signal rank's,
+  so the cell reads n/a. `lowvol` is the volatility factor itself, so its raw
+  IC is the number to read.
 - Costs are retail round-trip estimates from `apply_costs.py`, with no market
   impact. Break-even bps is the honest number to compare against your own broker.
 - Weekly formation, daily bars. Nothing here speaks to intraday or HFT roles

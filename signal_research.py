@@ -408,14 +408,19 @@ def write_markdown(ic, fm, wf, cost, results, rules, pbo, oi):
                 star = "**" if s.loc[h, "q_bh"] < 0.05 else ""
                 cells.append(f"{star}{fmt(s.loc[h, 'mean_ic'])} ({fmt(s.loc[h, 'nw_t'], 1)}){star}")
             r10 = s.loc[10]
+            nic = r10.get("neutral_ic")
+            neut = (f"{fmt(nic)} ({fmt(r10.get('neutral_t'), 1)})"
+                    if nic is not None and np.isfinite(nic) else "n/a")
             L.append(f"| {k} | " + " | ".join(cells)
-                     + f" | {fmt(r10.get('neutral_ic'))} ({fmt(r10.get('neutral_t'), 1)})"
+                     + f" | {neut}"
                      + f" | {fmt(r10['bull_ic'])} ({fmt(r10['bull_t'], 1)})"
                      + f" | {fmt(r10['bear_ic'])} ({fmt(r10['bear_t'], 1)}) |")
         L.append("")
     L += ["**bold** = survives BH-FDR at 5%. Sign convention: positive IC means a higher "
           "signal value predicts a higher forward return (rev5 is already negated, so a "
-          "positive rev5 IC means short-term reversal works).", ""]
+          "positive rev5 IC means short-term reversal works). Neutral IC is n/a where the "
+          "signal is collinear with an exposure (`lowvol` is minus the `vol` exposure, so "
+          "nothing is left after neutralising) or not neutralised (`zone`).", ""]
 
     L += ["## 3. What the mailer is using vs what the evidence says (10d horizon)", "",
           "The mailer (`zone_regime.json`) picks one rule per market per regime. Each is "
