@@ -304,6 +304,7 @@ def main():
                           f"{str(r['company'])[:38]}  ·  {r['event']}")
         return
 
+    import marketdata
     markets = (marketdata.market_list()
                if (args.all or not args.market) else [args.market])
 
