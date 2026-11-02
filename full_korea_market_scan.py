@@ -36,6 +36,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
+
+from scanner_core.darvas import get_profile
+from stock_utils import first_df as _first_df, row as _row, series as _series
 import requests
 import yfinance as yf
 
@@ -194,99 +197,11 @@ def fetch_krx_ohlc(universe: list[dict], months: int = 3) -> dict[str, pd.DataFr
 # ── Darvas Box ────────────────────────────────────────────────────────────────
 
 def compute_darvas_box(df: pd.DataFrame, confirm: int = DARVAS_CONFIRM) -> dict:
-    if df is None or df.empty or len(df) < confirm + 5:
-        return {"signal": "INSUFFICIENT_DATA", "box_top": None, "box_bottom": None}
-
-    highs  = pd.to_numeric(df["High"],  errors="coerce").fillna(0).tolist()
-    lows   = pd.to_numeric(df["Low"],   errors="coerce").fillna(0).tolist()
-    closes = pd.to_numeric(df["Close"], errors="coerce").fillna(0).tolist()
-
-    current = closes[-1]
-    h = highs[:-1]   # exclude current bar from box formation
-    l = lows[:-1]
-    n = len(h)
-
-    box_top_idx = box_top = None
-    for i in range(n - confirm - 1, -1, -1):
-        c = h[i]
-        if c == 0:
-            continue
-        w = h[i + 1: i + 1 + confirm]
-        if len(w) == confirm and all(x < c for x in w):
-            box_top_idx, box_top = i, c
-            break
-
-    if box_top is None:
-        return {"signal": "NO_BOX", "box_top": None, "box_bottom": None,
-                "current_price": current}
-
-    seg = l[box_top_idx:]
-    box_bottom = None
-    for i in range(len(seg) - confirm):
-        c = seg[i]
-        if c == 0:
-            continue
-        w = seg[i + 1: i + 1 + confirm]
-        if len(w) == confirm and all(x > c for x in w):
-            box_bottom = c
-            break
-    if box_bottom is None:
-        valid = [x for x in seg if x > 0]
-        box_bottom = min(valid) if valid else None
-
-    if box_bottom is None:
-        return {"signal": "NO_BOX", "box_top": round(box_top, 0), "box_bottom": None,
-                "current_price": round(current, 0)}
-
-    signal = ("BREAKOUT_BUY"   if current > box_top   else
-              "BREAKDOWN_SELL" if current < box_bottom else "IN_BOX")
-
-    rng    = box_top - box_bottom
-    upside = ((box_top - current) / current * 100) if current else 0
-    pos    = ((current - box_bottom) / rng * 100)  if rng    else 0
-
-    return {
-        "signal":       signal,
-        "box_top":      round(box_top,    0),
-        "box_bottom":   round(box_bottom, 0),
-        "current_price":round(current,    0),
-        "upside_pct":   round(upside, 2),
-        "pos_in_box":   round(pos,    1),
-        "data_points":  len(closes),
-    }
+    """Darvas box (korea profile); the shared engine excludes the current bar from box formation."""
+    return get_profile("korea").compute(df, confirm)
 
 
 # ── Fundamental helpers ───────────────────────────────────────────────────────
-
-def _first_df(ticker, *attrs):
-    for attr in attrs:
-        df = getattr(ticker, attr, None)
-        if df is not None and isinstance(df, pd.DataFrame) and not df.empty:
-            return df
-    return None
-
-
-def _row(df, *names, col: int = 0):
-    if df is None or df.empty:
-        return None
-    for name in names:
-        if name in df.index:
-            try:
-                val = df.loc[name].iloc[col]
-                return float(val) if pd.notna(val) else None
-            except Exception:
-                pass
-    return None
-
-
-def _series(df, *names):
-    if df is None or df.empty:
-        return []
-    for name in names:
-        if name in df.index:
-            return [float(v) for v in df.loc[name].dropna() if pd.notna(v)]
-    return []
-
 
 # ── Fundamental scan (yfinance, .KS / .KQ) ───────────────────────────────────
 
