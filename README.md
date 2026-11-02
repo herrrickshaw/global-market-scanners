@@ -1,23 +1,68 @@
-# Global Market Scanners & Multi-Market Quant Platform
+# Global Market Scanners and Multi-Market Quant Platform
 
-<!-- how-to-use-with-ai -->
-> **New here?** See [How to use this repo with AI (Claude, Gemini, ChatGPT)](HOW_TO_USE_WITH_AI.md) — clone it, paste it into an AI tool, and ask in plain English.
+Full-universe equity scanners (Darvas box, Piotroski F-Score and Coffee Can) for the US, Europe,
+India, Japan and Korea, plus a research platform around them: point-in-time backtests, factor
+studies, DVM scoring across 19 markets and a derived industry/peer parquet dataset. The scanners
+write styled Excel workbooks; the research modules write Markdown reports and parquet/DuckDB tables.
 
-
-A research platform for **multi-market equity screening, backtesting, and factor
-research** — spanning classic technical/fundamental scanners, a point-in-time
-backtesting engine, a hybrid ML screen-discovery layer, Trendlyne-style DVM scoring
-across 19 markets, and a Cassandra/Kafka/Flink data backbone.
-
-> **Scope:** stock-market research only. Retail-outlet / highway data lives in the
-> separate [`retail-outlet-monitoring`](https://github.com/herrrickshaw/retail-outlet-monitoring)
-> and [`fuel-retail-outlets`](https://github.com/herrrickshaw/fuel-retail-outlets) repos.
-
-📓 **New here?** Open the zero-install tour in Colab, or read the **[User Guide](USER_GUIDE.md)**.
+> Status: active research code. Research and education only, not investment advice. Backtests are
+> pre-slippage unless stated; fundamentals are point-in-time (US/EDGAR) or a current snapshot
+> (yfinance) as noted per module. Retail-outlet and highway data live in the separate
+> [`retail-outlet-monitoring`](https://github.com/herrrickshaw/retail-outlet-monitoring) and
+> [`fuel-retail-outlets`](https://github.com/herrrickshaw/fuel-retail-outlets) repos.
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/herrrickshaw/global-market-scanners/blob/main/notebooks/DVM_Global_Colab.ipynb)
 
----
+New here? Read the [User Guide](USER_GUIDE.md) or
+[How to use this repo with AI](HOW_TO_USE_WITH_AI.md).
+
+## What it does
+- Scans a whole exchange universe (US ~5,400, India ~4,600, Japan ~3,600, Korea ~2,600, Euro Stoxx 50)
+  for Darvas-box breakouts, then scores breakout candidates with Piotroski and Coffee Can.
+- Flags a "Triple Hit": Darvas breakout, Piotroski F-Score of at least 7/9, and a Coffee Can pass
+  (revenue CAGR > 10%, average ROCE > 15%, D/E < 1, positive earnings every year, positive FCF).
+- Runs a lookahead-free point-in-time backtest on SEC EDGAR filings (filed-date filtered).
+- Scores Durability/Valuation/Momentum (Trendlyne-style) and classifies GGG/GGB/BBG across 19 markets.
+- Builds `companies_industry.parquet` and `industry_segments.parquet`: company names by industry with
+  global peers attached.
+- Serves the warehouse through FastAPI (`serve.py`) and a Cassandra/Kafka/Flink data backbone.
+
+## Quick start
+```bash
+git clone https://github.com/herrrickshaw/global-market-scanners
+cd global-market-scanners
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python full_indian_market_scan.py --top 200      # headline output: styled Excel workbook
+```
+
+Other entry points (unchanged):
+```bash
+python dvm_global.py --screen trendlyne_technical    # 19 markets, local data, no network
+python fundamentals_global.py --top 40 && python dvm_composite.py
+python pit_backtest.py --universe scan --years 5
+```
+
+## How it works
+Each scanner runs the same five stages:
+
+| Stage | Module | Output |
+|---|---|---|
+| 1. Universe fetch | `full_<market>_market_scan.py` (NSE/BSE, NASDAQ Trader/NCDS, JPX/kabupy, KRX/pykrx, fixed Euro Stoxx list) | symbol list, cached |
+| 2. Bulk OHLC | same module (`bulk_download_ohlc`, yfinance batches) | per-ticker frames |
+| 3. Darvas box | `scanner_core/darvas.py` | BREAKOUT_BUY / BREAKDOWN_SELL / IN_BOX / NO_BOX |
+| 4. Fundamentals on candidates | `fundamental_scan()` in each scanner (Piotroski, Coffee Can) | scores per candidate |
+| 5. Export | `save_excel()` / `style_sheet()` | `<market>_full_scan/` workbooks |
+
+Design notes:
+- **One Darvas algorithm, five profiles.** `scanner_core.darvas.locate_box` is the single pure
+  implementation; `DarvasProfile` records the per-market differences (column lookup, rounding, result
+  keys) and `PROFILES` is a registry keyed by market name. Each scanner's `compute_darvas_box` is a
+  one-line delegate, so existing imports and CLI behaviour are unchanged.
+- **The current bar is excluded from box formation** to avoid lookahead contamination.
+- **Shared statement helpers** (`first_df`, `row`, `series`) live in `stock_utils.py`.
+- Output shapes differ per market on purpose (for example Japan/Korea round to whole currency units
+  and use `upside_pct`/`pos_in_box`); `tests/golden_darvas.json` pins every variant.
 
 ## What's inside
 
@@ -50,48 +95,53 @@ across 19 markets, and a Cassandra/Kafka/Flink data backbone.
 | **Utilities** | `market_holidays.py`, `market_data_cache.py`, `stock_utils.py`, `marketdata.py` | Trading calendars, caching, shared reusable blocks |
 | **Write surface (CRUD)** | `watchlist_store.py` (+ `serve.py` REST) | Versioned CRUD for watchlists — append-only, full history, soft-delete/restore/time-travel |
 
----
 
-## Quick start
+## Repository layout
+| Path | Purpose |
+|---|---|
+| `full_{us,indian,japan,korea,european}_market_scan.py` | The five scanner CLIs |
+| `scanner_core/` | Shared, pure scanner logic (Darvas engine and profile registry) |
+| `stock_utils.py`, `marketdata.py`, `market_data_cache.py` | Shared helpers, parquet access, OHLC cache |
+| `build_industry_parquet.py`, `enrich_industries.py` | Industry/peer dataset build and yfinance enrichment |
+| `*.parquet` | Dataset outputs, stored with Git LFS (clone with LFS to get real content) |
+| `tests/` | pytest suite, including golden Darvas characterisation (`tests/golden_darvas.json`) |
+| `architecture/`, `safe/`, `cdc/`, `docs/` | TOGAF governance, SAFe backlog, CDC deployment, process docs |
+| `*.md` (root) | One design/results document per module, indexed below |
 
-```bash
-pip install -r requirements.txt
-
-# 1) Scan a full market  ->  styled Excel workbook
-python full_indian_market_scan.py --top 200
-
-# 2) Trendlyne-style technical screen across all 19 markets (local data, no network)
-python dvm_global.py --screen trendlyne_technical
-
-# 3) Global DVM composite ranking (GGG/GGB/BBG)
-python fundamentals_global.py --top 40      # source fundamentals once (cached)
-python dvm_composite.py                       # fuse momentum + fundamentals -> ranking
-
-# 4) Point-in-time US backtest (does the fundamental gate add value?)
-python pit_backtest.py --universe scan --years 5
-```
-
-See the **[User Guide](USER_GUIDE.md)** for the full workflow and every module.
-
----
-
-## The core scan pipeline
-
-Each scanner runs the same 5 stages: **universe fetch → bulk OHLC → Darvas Box
-classification → fundamentals on breakout candidates → styled Excel export**.
-
-**Triple Hit** = Darvas breakout **+** Piotroski F-Score ≥ 7/9 **+** Coffee-Can pass
-(revenue CAGR > 10%, avg ROCE > 15%, D/E < 1, positive earnings every year, positive FCF).
-
-| Scanner | Market | Universe | Data source |
+## Data sources
+| Source | What is taken | Access route | Licence / caveat |
 |---|---|---|---|
-| `full_us_market_scan.py` | USA (NYSE + NASDAQ) | ~5,400 | yfinance + EDGAR |
-| `full_indian_market_scan.py` | India (NSE + BSE) | ~4,600 | nsepython + bseindia + yfinance |
-| `full_japan_market_scan.py` | Japan (TSE) | ~3,600 | kabupy + yfinance |
-| `full_korea_market_scan.py` | Korea (KOSPI + KOSDAQ) | ~2,600 | pykrx + yfinance |
-| `full_european_market_scan.py` | Europe (Euro Stoxx 50) | 50 | yfinance |
+| Yahoo Finance via yfinance | OHLC and fundamentals, all markets | public API, rate limited | personal/research use; terms apply |
+| NSE / BSE | India universe | `nsepython`, `bseindia` | exchange terms apply |
+| NASDAQ Trader symbol files, SEC EDGAR | US universe, point-in-time filings | public HTTP | SEC fair-access policy |
+| JPX / kabupy | Japan universe | public download | exchange terms apply |
+| KRX via pykrx | Korea universe | scraped; KRX login env vars may be required | check KRX terms |
 
----
+See [DATA_SOURCES.md](DATA_SOURCES.md) for the per-market public factor libraries.
+
+## Configuration
+- `~/.nasdaq/ncds_auth.json`: optional Nasdaq Data Link NCDS credentials for the US universe
+  (read from your home directory; never committed). Without it the scanner falls back to public
+  NASDAQ Trader files.
+- `KRX_ID`, `KRX_PW`: environment variables read by `pykrx` for KRX access (optional).
+- Output directories (for example `./us_full_scan`) are relative to the working directory and are
+  gitignored, as are `*.xlsx`.
+- No API keys are required for the default scans.
+
+## Testing
+```bash
+pip install pytest ruff pandas numpy scipy scikit-learn requests openpyxl yfinance nsepython bseindia pykrx lxml beautifulsoup4
+ruff check .
+pytest -q          # 149 tests, offline
+./verify_integrity.sh   # tracked-file hashes vs CHECKSUMS.sha256 (regenerate after edits)
+```
+CI (`.github/workflows/ci.yml`) runs lint, tests, TOGAF governance and the integrity manifest.
+
+## Limitations and known issues
+- The Piotroski/Coffee Can `fundamental_scan()` logic is still duplicated across the five scanners and
+  entangled with yfinance calls; only the Darvas stage has been consolidated so far.
+- Fundamentals are a current yfinance snapshot except in the US point-in-time backtest.
+- Tracked `*.parquet` files are LFS pointers; without `git lfs pull` they are 130-byte text stubs.
 
 ## Documentation index
 
@@ -138,19 +188,17 @@ classification → fundamentals on breakout candidates → styled Excel export**
 **Decision layer & consumption**
 - [Decision layer, global rigor & observability](DECISION_LAYER.md) — portfolio / risk / meta-screen / rotation / alerts / comps + global PIT + FX + data quality + serving
 
----
 
-## Install & requirements
+## Install and requirements
+Python 3.9+. Core: pandas, numpy, pyarrow, scikit-learn, yfinance, openpyxl. Market libs:
+nsepython, bseindia, kabupy, pykrx. Optional data backbone: cassandra-driver, confluent-kafka,
+apache-flink (servers via `brew install cassandra kafka apache-flink`). See
+[`requirements.txt`](requirements.txt) and [INFRA.md](INFRA.md).
 
-```bash
-pip install -r requirements.txt
-```
-Python 3.9+. Core: pandas, numpy, pyarrow, scikit-learn, yfinance, openpyxl. Market
-libs: nsepython, bseindia, kabupy, pykrx. Optional data backbone: cassandra-driver,
-confluent-kafka, apache-flink (servers via `brew install cassandra kafka apache-flink`).
-See [`requirements.txt`](requirements.txt) and [INFRA.md](INFRA.md).
+## Related repositories
+- [`retail-outlet-monitoring`](https://github.com/herrrickshaw/retail-outlet-monitoring) and
+  [`fuel-retail-outlets`](https://github.com/herrrickshaw/fuel-retail-outlets): split out of this
+  repo's earlier scope.
 
-## Notes
-Not investment advice — research only. Backtests are pre-slippage unless stated;
-fundamentals are point-in-time (US/EDGAR) or current-snapshot (global/yfinance) as
-noted per module.
+## Licence
+No licence file yet: all rights reserved.
