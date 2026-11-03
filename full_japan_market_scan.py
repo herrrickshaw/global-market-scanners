@@ -36,7 +36,8 @@ from pathlib import Path
 import pandas as pd
 
 from scanner_core.darvas import get_profile
-from stock_utils import first_df as _first_df, row as _row, series as _series
+from scanner_core import fundamentals as fund
+from stock_utils import first_df as _first_df, row as _row, series as _series  # noqa: F401  (aliases kept for importers)
 import requests
 import yfinance as yf
 
@@ -238,8 +239,43 @@ def compute_darvas_box(df: pd.DataFrame, confirm: int = DARVAS_CONFIRM) -> dict:
 
 # ── Fundamental scan ─────────────────────────────────────────────────────────
 
+def _jp_piotroski(result: dict, inc, bal, cf) -> bool:
+    """Fill F-Score keys; False when scoring failed (caller returns the partial result)."""
+    try:
+        f_score = fund.piotroski_f_score(inc, bal, cf)
+        result["f_score"] = f_score
+        result["f_strong"] = f_score >= PIOTROSKI_STRONG
+        return True
+    except Exception:  # malformed statement frame: leave the row with f_score=None
+        return False
+
+
+def _jp_coffee_can(result: dict, ticker, inc, bal, cf) -> None:
+    """Japan-adapted Coffee Can (6 criteria; C4 = market cap >= ¥100B)."""
+    try:
+        de = fund.debt_to_equity_from_balance(bal)
+        try:
+            mcap = ticker.fast_info.market_cap or 0
+        except Exception:  # fast_info unavailable: treat as unknown market cap
+            mcap = 0
+        cc = fund.coffee_can_flags(inc, bal, cf, de)
+        c = dict(cc.flags)
+        c["C4"] = 1 if mcap >= 1e11 else 0   # >= ¥100B
+        qualifies = sum(c.values()) == len(c)
+        result.update({
+            "cc_qualifies":   "PASS" if qualifies else "FAIL",
+            "cc_score":       f"{sum(c.values())}/{len(c)}",
+            "cc_rev_cagr":    round(cc.cagr, 2) if cc.cagr else None,
+            "cc_roce_avg":    round(cc.avg_roce, 2) if cc.avg_roce else None,
+            "cc_debt_equity": round(de, 2) if de is not None else None,
+            "market_cap_b_jpy": round(mcap / 1e9, 1) if mcap else None,
+        })
+    except Exception:  # keep the F-Score result even if Coffee Can inputs are malformed
+        pass
+
+
 def fundamental_scan(yf_ticker: str) -> dict:
-    """Piotroski F-Score + Japan-adapted Coffee Can in a single yfinance call."""
+    """Piotroski F-Score + Japan-adapted Coffee Can via yfinance."""
     result = {"yf_ticker": yf_ticker, "f_score": None, "cc_qualifies": "FAIL", "error": None}
     try:
         ticker = yf.Ticker(yf_ticker)
@@ -253,108 +289,12 @@ def fundamental_scan(yf_ticker: str) -> dict:
         result["error"] = str(e)[:80]
         return result
 
-    # ── Piotroski F-Score ─────────────────────────────────────────────────────
-    try:
-        ni0 = _row(inc, "Net Income", col=0);  a0 = _row(bal, "Total Assets", col=0)
-        ni1 = _row(inc, "Net Income", col=1);  a1 = _row(bal, "Total Assets", col=1)
-        roa0 = (ni0 / a0) if (ni0 and a0) else None
-        roa1 = (ni1 / a1) if (ni1 and a1) else None
-        ocf0 = _row(cf, "Operating Cash Flow", "Total Cash From Operating Activities")
-
-        f1 = 1 if (roa0 and roa0 > 0)              else 0
-        f2 = 1 if (ocf0 and ocf0 > 0)              else 0
-        f3 = 1 if (roa0 and roa1 and roa0 > roa1)  else 0
-        f4 = 1 if (ocf0 and a0 and roa0 and (ocf0 / a0) > roa0) else 0
-
-        ltd0 = _row(bal, "Long Term Debt", col=0) or 0
-        ltd1 = _row(bal, "Long Term Debt", col=1) or 0
-        f5 = 1 if (a0 and a1 and (ltd0 / a0) < (ltd1 / a1)) else 0
-
-        ca0 = _row(bal, "Current Assets", "Total Current Assets", col=0)
-        cl0 = _row(bal, "Current Liabilities", "Total Current Liabilities", col=0)
-        ca1 = _row(bal, "Current Assets", "Total Current Assets", col=1)
-        cl1 = _row(bal, "Current Liabilities", "Total Current Liabilities", col=1)
-        f6 = 1 if (ca0 and cl0 and ca1 and cl1 and (ca0 / cl0) > (ca1 / cl1)) else 0
-
-        sh0 = _row(bal, "Share Issued", col=0)
-        sh1 = _row(bal, "Share Issued", col=1)
-        f7 = (1 if sh0 <= sh1 else 0) if (sh0 and sh1) else 1
-
-        rev0 = _row(inc, "Total Revenue", col=0); gp0 = _row(inc, "Gross Profit", col=0)
-        rev1 = _row(inc, "Total Revenue", col=1); gp1 = _row(inc, "Gross Profit", col=1)
-        f8 = 1 if (gp0 and rev0 and gp1 and rev1 and (gp0 / rev0) > (gp1 / rev1)) else 0
-        f9 = 1 if (rev0 and a0 and rev1 and a1 and (rev0 / a0) > (rev1 / a1)) else 0
-
-        f_score = f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8 + f9
-        result["f_score"]  = f_score
-        result["f_strong"] = f_score >= PIOTROSKI_STRONG
-    except Exception:
+    if not _jp_piotroski(result, inc, bal, cf):
         return result
-
     if not result.get("f_strong"):
         result["cc_score"] = "—"
         return result
-
-    # ── Coffee Can (Japan-adapted) ────────────────────────────────────────────
-    # C1: Revenue CAGR > 10% over available history
-    # C2: Avg ROCE > 15%
-    # C3: D/E < 1
-    # C4: Market cap ≥ ¥100B (~mid-cap TSE Prime)
-    # C5: Consistently profitable (all years positive NI)
-    # C6: Positive FCF (most recent year)
-    try:
-        c = {}
-        revs = _series(inc, "Total Revenue")
-        if len(revs) >= 2 and revs[-1] > 0:
-            cagr = ((revs[0] / revs[-1]) ** (1 / (len(revs) - 1)) - 1) * 100
-            c["C1"] = 1 if cagr > 10 else 0
-        else:
-            cagr = None; c["C1"] = 0
-
-        ebit_s = _series(inc, "EBIT", "Operating Income", "Ebit")
-        ta_s   = _series(bal, "Total Assets")
-        cl_s   = _series(bal, "Current Liabilities", "Total Current Liabilities")
-        roce_l = [ebit_s[i] / (ta_s[i] - cl_s[i]) * 100
-                  for i in range(min(len(ebit_s), len(ta_s), len(cl_s)))
-                  if (ta_s[i] - cl_s[i]) > 0]
-        avg_roce = sum(roce_l) / len(roce_l) if roce_l else None
-        c["C2"] = 1 if (avg_roce and avg_roce > 15) else 0
-
-        ltd_s = _series(bal, "Long Term Debt")
-        eq_s  = _series(bal, "Stockholders Equity", "Total Stockholder Equity",
-                        "Total Equity Gross Minority Interest")
-        de = (ltd_s[0] / abs(eq_s[0])) if (ltd_s and eq_s and eq_s[0] != 0) else None
-        c["C3"] = 1 if (de is not None and de < 1) else 0
-
-        try:
-            mcap = ticker.fast_info.market_cap or 0
-        except Exception:
-            mcap = 0
-        c["C4"] = 1 if mcap >= 1e11 else 0   # ≥ ¥100B
-
-        ni_s = _series(inc, "Net Income")
-        c["C5"] = 1 if (ni_s and all(n > 0 for n in ni_s)) else 0
-
-        fcf_s = _series(cf, "Free Cash Flow")
-        if fcf_s:
-            c["C6"] = 1 if fcf_s[0] > 0 else 0
-        else:
-            ocf_s   = _series(cf, "Operating Cash Flow")
-            capex_s = _series(cf, "Capital Expenditure")
-            c["C6"] = 1 if (ocf_s and capex_s and (ocf_s[0] - abs(capex_s[0])) > 0) else 0
-
-        qualifies = sum(c.values()) == len(c)
-        result.update({
-            "cc_qualifies":   "PASS" if qualifies else "FAIL",
-            "cc_score":       f"{sum(c.values())}/{len(c)}",
-            "cc_rev_cagr":    round(cagr, 2) if cagr else None,
-            "cc_roce_avg":    round(avg_roce, 2) if avg_roce else None,
-            "cc_debt_equity": round(de, 2) if de is not None else None,
-            "market_cap_b_jpy": round(mcap / 1e9, 1) if mcap else None,
-        })
-    except Exception:
-        pass
-
+    _jp_coffee_can(result, ticker, inc, bal, cf)
     return result
 
 

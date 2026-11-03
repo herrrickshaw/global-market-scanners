@@ -319,7 +319,72 @@ def compute_golden_crossover(df: pd.DataFrame) -> dict:
 # ── Piotroski F-Score ─────────────────────────────────────────────────────────
 
 # Shared helpers (see stock_utils.py) — aliased to keep existing call sites.
-from stock_utils import first_df as _first_df, row as _row
+from scanner_core import fundamentals as fund
+
+
+def _in_failed_scan(symbol: str, error: str) -> dict:
+    """Result row for a symbol whose statements could not be fetched."""
+    return {"symbol": symbol, "error": error,
+            "f_score": None, "f_strong": False,
+            "qualifies_cc": False, "cc_score": "N/A",
+            "qualifies_mf": False, "qualifies_bc": False,
+            "ROIC_%": None, "Earnings_Yield_%": None,
+            "Sales_Growth_YoY_%": None, "Profit_Growth_YoY_%": None}
+
+
+def _in_piotroski_and_coffee_can(st: fund.Statements) -> dict:
+    """Screeners 1 + 2: Piotroski F-Score and the 5-criterion Coffee Can (ROCE-based)."""
+    inc, bal, info = st.inc, st.bal, st.info
+    out = {}
+    f_score = fund.piotroski_f_score(inc, bal, st.cf)
+    out["f_score"] = f_score
+    out["f_strong"] = f_score >= 7
+
+    cagr = fund.revenue_cagr(inc)
+    avg_roce = fund.avg_roce(inc, bal)
+    de_raw = info.get("debtToEquity")
+    if de_raw is not None:
+        de = fund.normalise_debt_to_equity(de_raw)
+    else:
+        de = fund.debt_to_equity_from_balance(bal, abs_equity=False)
+    mcap_cr = st.mcap / 1e7
+    cc_bits = [
+        1 if (cagr and cagr > 10) else 0,
+        1 if (avg_roce and avg_roce > 15) else 0,
+        1 if (de is not None and de < 1) else 0,
+        1 if mcap_cr >= 500 else 0,
+        1 if fund.all_years_positive(inc) else 0,
+    ]
+    out["qualifies_cc"] = sum(cc_bits) == 5
+    out["cc_score"] = f"{sum(cc_bits)}/5"
+    out["Revenue_CAGR_%"] = fund.rounded(cagr)
+    out["ROCE_avg_%"] = fund.rounded(avg_roce)
+    return out
+
+
+def _in_magic_formula(st: fund.Statements) -> dict:
+    """Screener 3: Magic Formula (ROIC > 25%, earnings yield > 15%, market cap > INR 15 Cr)."""
+    mf = fund.magic_formula_inputs(st.inc, st.bal, st.info, st.mcap)
+    return {"qualifies_mf": fund.magic_formula_passes(mf, st.mcap / 1e7 > 15),
+            "ROIC_%": fund.rounded(mf.roic), "Earnings_Yield_%": fund.rounded(mf.earnings_yield)}
+
+
+_IN_NO_ANNUAL = {"f_score": None, "f_strong": False,
+                 "qualifies_cc": False, "cc_score": "N/A",
+                 "qualifies_mf": False, "ROIC_%": None, "Earnings_Yield_%": None,
+                 "Revenue_CAGR_%": None, "ROCE_avg_%": None}
+
+
+def _in_bull_cartel(inc_q) -> dict:
+    """Screener 4: YoY quarterly sales > 15%, profit > 20%, net profit > INR 1 Cr."""
+    if inc_q is None or len(inc_q.columns) < 5:
+        return {"qualifies_bc": False, "Sales_Growth_YoY_%": None,
+                "Profit_Growth_YoY_%": None, "Net_Profit_Cr": None}
+    bc = fund.bull_cartel(inc_q, profit_divisor=1e7, min_profit=1)
+    return {"qualifies_bc": bc.qualifies,
+            "Sales_Growth_YoY_%": fund.rounded(bc.sales_growth),
+            "Profit_Growth_YoY_%": fund.rounded(bc.profit_growth),
+            "Net_Profit_Cr": fund.rounded(bc.net_profit_scaled)}
 
 
 def fundamental_scan(symbol: str, yf_suffix: str = ".NS") -> dict:
@@ -332,146 +397,21 @@ def fundamental_scan(symbol: str, yf_suffix: str = ".NS") -> dict:
       3. Magic Formula      — ROIC > 25%, Earnings Yield > 15%  (reuses same annual data)
       4. Bull Cartel        — YoY quarterly sales growth > 15%, profit > 20%
 
-    One yfinance Ticker() → one set of HTTP calls → four screener results.
+    One yfinance Ticker() -> one set of HTTP calls -> four screener results.
     This is the core efficiency mechanism for running all screeners on the full universe.
     """
     try:
-        ticker = yf.Ticker(f"{symbol}{yf_suffix}")
-        inc    = _first_df(ticker, "income_stmt", "financials")
-        bal    = _first_df(ticker, "balance_sheet")
-        cf     = _first_df(ticker, "cash_flow", "cashflow")
-        inc_q  = _first_df(ticker, "quarterly_income_stmt", "quarterly_financials")
-        try:
-            mcap = ticker.fast_info.market_cap or 0
-        except Exception:
-            mcap = 0
-        try:
-            info = ticker.info or {}
-        except Exception:
-            info = {}
+        st = fund.load_statements(yf.Ticker(f"{symbol}{yf_suffix}"))
     except Exception as e:
-        return {"symbol": symbol, "error": str(e),
-                "f_score": None, "f_strong": False,
-                "qualifies_cc": False, "cc_score": "N/A",
-                "qualifies_mf": False, "qualifies_bc": False,
-                "ROIC_%": None, "Earnings_Yield_%": None,
-                "Sales_Growth_YoY_%": None, "Profit_Growth_YoY_%": None}
+        return _in_failed_scan(symbol, str(e))
 
     out = {"symbol": symbol, "error": ""}
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # SCREENER 1 + 2: Piotroski F-Score & Coffee Can (annual statements)
-    # ─────────────────────────────────────────────────────────────────────────
-    if inc is not None:
-        ni0 = _row(inc, "Net Income", col=0);  a0 = _row(bal, "Total Assets", col=0)
-        ni1 = _row(inc, "Net Income", col=1);  a1 = _row(bal, "Total Assets", col=1)
-        roa0 = (ni0 / a0) if (ni0 and a0) else None
-        roa1 = (ni1 / a1) if (ni1 and a1) else None
-        ocf0 = _row(cf, "Operating Cash Flow", "Total Cash From Operating Activities")
-        ltd0 = _row(bal, "Long Term Debt", col=0) or 0
-        ltd1 = _row(bal, "Long Term Debt", col=1) or 0
-        ca0  = _row(bal, "Current Assets", "Total Current Assets", col=0)
-        cl0  = _row(bal, "Current Liabilities", "Total Current Liabilities", col=0)
-        ca1  = _row(bal, "Current Assets", "Total Current Assets", col=1)
-        cl1  = _row(bal, "Current Liabilities", "Total Current Liabilities", col=1)
-        sh0  = _row(bal, "Share Issued", col=0); sh1 = _row(bal, "Share Issued", col=1)
-        rev0 = _row(inc, "Total Revenue", col=0); gp0 = _row(inc, "Gross Profit", col=0)
-        rev1 = _row(inc, "Total Revenue", col=1); gp1 = _row(inc, "Gross Profit", col=1)
-
-        f_score = (
-            (1 if (roa0 and roa0 > 0) else 0) +
-            (1 if (ocf0 and ocf0 > 0) else 0) +
-            (1 if (roa0 and roa1 and roa0 > roa1) else 0) +
-            (1 if (ocf0 and a0 and roa0 and (ocf0/a0) > roa0) else 0) +
-            (1 if (a0 and a1 and (ltd0/a0) < (ltd1/a1)) else 0) +
-            (1 if (ca0 and cl0 and ca1 and cl1 and (ca0/cl0) > (ca1/cl1)) else 0) +
-            ((1 if sh0 <= sh1 else 0) if (sh0 and sh1) else 1) +
-            (1 if (gp0 and rev0 and gp1 and rev1 and (gp0/rev0) > (gp1/rev1)) else 0) +
-            (1 if (rev0 and a0 and rev1 and a1 and (rev0/a0) > (rev1/a1)) else 0)
-        )
-        out["f_score"]  = f_score
-        out["f_strong"] = f_score >= 7
-
-        # Coffee Can
-        def series(df, *rows):
-            for name in rows:
-                if df is not None and name in df.index:
-                    return [float(v) for v in df.loc[name].dropna() if pd.notna(v)]
-            return []
-
-        revs = series(inc, "Total Revenue")
-        cagr = ((revs[0]/revs[-1])**(1/(len(revs)-1))-1)*100 if len(revs)>=2 and revs[-1]>0 else None
-
-        ebit_s = series(inc, "EBIT", "Operating Income", "Ebit")
-        ta_s   = series(bal, "Total Assets")
-        cl_s   = series(bal, "Current Liabilities", "Total Current Liabilities")
-        roce_l = [ebit_s[i]/(ta_s[i]-cl_s[i])*100
-                  for i in range(min(len(ebit_s),len(ta_s),len(cl_s))) if (ta_s[i]-cl_s[i])>0]
-        avg_roce = sum(roce_l)/len(roce_l) if roce_l else None
-
-        de_raw = info.get("debtToEquity")
-        if de_raw is not None:
-            de = de_raw/100 if de_raw > 10 else de_raw
-        else:
-            ltd_s = series(bal, "Long Term Debt")
-            eq_s  = series(bal, "Stockholders Equity", "Total Stockholder Equity",
-                           "Total Equity Gross Minority Interest")
-            de = (ltd_s[0]/eq_s[0]) if (ltd_s and eq_s and eq_s[0]!=0) else None
-
-        mcap_cr = mcap / 1e7
-        ni_s    = series(inc, "Net Income")
-        cc_bits = [
-            1 if (cagr    and cagr    > 10)  else 0,
-            1 if (avg_roce and avg_roce > 15) else 0,
-            1 if (de is not None and de < 1)  else 0,
-            1 if mcap_cr >= 500               else 0,
-            1 if (ni_s and all(n > 0 for n in ni_s)) else 0,
-        ]
-        out["qualifies_cc"] = sum(cc_bits) == 5
-        out["cc_score"]     = f"{sum(cc_bits)}/5"
-        out["Revenue_CAGR_%"] = round(cagr,     2) if cagr     is not None else None
-        out["ROCE_avg_%"]     = round(avg_roce,  2) if avg_roce is not None else None
-
-        # Magic Formula  (ROIC + Earnings Yield — reuses same annual data)
-        ebit      = _row(inc, "EBIT", "Operating Income", "Ebit")
-        cap_emp   = (a0 - (cl0 or 0)) if a0 else None
-        total_dbt = info.get("totalDebt", 0) or 0
-        cash_val  = info.get("totalCash", 0) or 0
-        ev        = (mcap + total_dbt - cash_val) if mcap else None
-        roic      = (ebit/cap_emp*100) if (ebit and cap_emp and cap_emp>0) else None
-        ey        = (ebit/ev*100)       if (ebit and ev      and ev>0)     else None
-        bv        = info.get("bookValue")
-        out["qualifies_mf"]      = bool(roic and roic>25 and ey and ey>15
-                                        and bv and bv>0 and mcap_cr>15)
-        out["ROIC_%"]            = round(roic, 2) if roic is not None else None
-        out["Earnings_Yield_%"]  = round(ey,   2) if ey   is not None else None
+    if st.inc is not None:
+        out.update(_in_piotroski_and_coffee_can(st))
+        out.update(_in_magic_formula(st))
     else:
-        out.update({"f_score": None, "f_strong": False,
-                    "qualifies_cc": False, "cc_score": "N/A",
-                    "qualifies_mf": False, "ROIC_%": None, "Earnings_Yield_%": None,
-                    "Revenue_CAGR_%": None, "ROCE_avg_%": None})
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # SCREENER 4: Bull Cartel (quarterly income statement)
-    # ─────────────────────────────────────────────────────────────────────────
-    if inc_q is not None and len(inc_q.columns) >= 5:
-        rev_q0 = _row(inc_q, "Total Revenue", col=0)
-        rev_q4 = _row(inc_q, "Total Revenue", col=4)
-        ni_q0  = _row(inc_q, "Net Income",    col=0)
-        ni_q4  = _row(inc_q, "Net Income",    col=4)
-        sales_g  = ((rev_q0-rev_q4)/abs(rev_q4)*100) if (rev_q0 and rev_q4 and rev_q4!=0) else None
-        profit_g = ((ni_q0-ni_q4)/abs(ni_q4)*100)   if (ni_q0  and ni_q4  and ni_q4!=0)  else None
-        ni_cr    = ni_q0 / 1e7 if ni_q0 else None
-        out["qualifies_bc"]        = bool(sales_g and sales_g>15
-                                          and profit_g and profit_g>20
-                                          and ni_cr and ni_cr>1)
-        out["Sales_Growth_YoY_%"]  = round(sales_g,  2) if sales_g  is not None else None
-        out["Profit_Growth_YoY_%"] = round(profit_g, 2) if profit_g is not None else None
-        out["Net_Profit_Cr"]       = round(ni_cr,    2) if ni_cr    is not None else None
-    else:
-        out.update({"qualifies_bc": False, "Sales_Growth_YoY_%": None,
-                    "Profit_Growth_YoY_%": None, "Net_Profit_Cr": None})
-
+        out.update(_IN_NO_ANNUAL)
+    out.update(_in_bull_cartel(st.inc_q))
     return out
 
 

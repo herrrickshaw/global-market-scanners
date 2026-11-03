@@ -29,7 +29,8 @@ from pathlib import Path
 import pandas as pd
 
 from scanner_core.darvas import get_profile
-from stock_utils import first_df as _first_df, row as _row, series as _series
+from scanner_core import fundamentals as fund
+from stock_utils import first_df as _first_df, row as _row, series as _series  # noqa: F401  (aliases kept for importers)
 import yfinance as yf
 
 try:
@@ -108,110 +109,44 @@ def compute_darvas_box(df: pd.DataFrame, confirm: int = DARVAS_CONFIRM) -> dict:
     return get_profile("europe").compute(df, confirm)
 
 # ── Fundamental Scan ──────────────────────────────────────────────────────────
-def fundamental_scan(symbol: str) -> dict:
-    """Fetch financials and execute F-Score, Coffee Can, and PEGY calculations in one Ticker call."""
-    res = {"symbol": symbol, "f_score": None, "cc_qualifies": "FAIL", "error": None}
+def _eu_piotroski(res: dict, inc, bal, cf) -> None:
+    """Screener 1: Piotroski F-Score (left as None if the statements are malformed)."""
     try:
-        ticker = yf.Ticker(symbol)
-        inc = _first_df(ticker, "income_stmt", "financials")
-        bal = _first_df(ticker, "balance_sheet")
-        cf  = _first_df(ticker, "cash_flow", "cashflow")
-        
-        info = {}
-        try:
-            info = ticker.info or {}
-        except Exception:
-            pass
-
-        if inc is None or inc.empty:
-            res["error"] = "no_financial_statements"
-            return res
-    except Exception as e:
-        res["error"] = str(e)[:80]
-        return res
-
-    # ── 1. Piotroski F-Score ──────────────────────────────────────────────────
-    try:
-        ni0 = _row(inc, "Net Income", col=0);  a0 = _row(bal, "Total Assets", col=0)
-        ni1 = _row(inc, "Net Income", col=1);  a1 = _row(bal, "Total Assets", col=1)
-        roa0 = (ni0 / a0) if (ni0 and a0) else None
-        roa1 = (ni1 / a1) if (ni1 and a1) else None
-        ocf0 = _row(cf, "Operating Cash Flow", "Total Cash From Operating Activities", col=0)
-
-        f1 = 1 if (roa0 and roa0 > 0) else 0
-        f2 = 1 if (ocf0 and ocf0 > 0) else 0
-        f3 = 1 if (roa0 and roa1 and roa0 > roa1) else 0
-        f4 = 1 if (ocf0 and a0 and roa0 and (ocf0 / a0) > roa0) else 0
-
-        ltd0 = _row(bal, "Long Term Debt", col=0) or 0
-        ltd1 = _row(bal, "Long Term Debt", col=1) or 0
-        f5 = 1 if (a0 and a1 and (ltd0/a0) < (ltd1/a1)) else 0
-
-        ca0 = _row(bal, "Current Assets", "Total Current Assets", col=0)
-        cl0 = _row(bal, "Current Liabilities", "Total Current Liabilities", col=0)
-        ca1 = _row(bal, "Current Assets", "Total Current Assets", col=1)
-        cl1 = _row(bal, "Current Liabilities", "Total Current Liabilities", col=1)
-        f6 = 1 if (ca0 and cl0 and ca1 and cl1 and (ca0/cl0) > (ca1/cl1)) else 0
-
-        sh0 = _row(bal, "Share Issued", col=0);  sh1 = _row(bal, "Share Issued", col=1)
-        f7 = (1 if sh0 <= sh1 else 0) if (sh0 and sh1) else 1
-
-        rev0 = _row(inc, "Total Revenue", col=0);  gp0 = _row(inc, "Gross Profit", col=0)
-        rev1 = _row(inc, "Total Revenue", col=1);  gp1 = _row(inc, "Gross Profit", col=1)
-        f8 = 1 if (gp0 and rev0 and gp1 and rev1 and (gp0/rev0) > (gp1/rev1)) else 0
-        f9 = 1 if (rev0 and a0 and rev1 and a1 and (rev0/a0) > (rev1/a1)) else 0
-
-        res["f_score"] = f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8 + f9
-    except Exception:
+        res["f_score"] = fund.piotroski_f_score(inc, bal, cf)
+    except Exception:  # malformed statement frame
         pass
 
-    # ── 2. Coffee Can Screen ──────────────────────────────────────────────────
+
+def _eu_coffee_can(res: dict, ticker, info, inc, bal, cf):
+    """Screener 2: Coffee Can (6 criteria, C4 = market cap >= EUR 1B).
+
+    Returns ``(ok, market_cap)``; ``ok`` is False when the screen aborted, in which case the
+    valuation block is skipped exactly as before."""
     try:
-        c = {}
-        revs = _series(inc, "Total Revenue")
-        cagr = ((revs[0] / revs[-1]) ** (1 / (len(revs) - 1)) - 1) * 100 if len(revs) >= 2 and revs[-1] > 0 else None
-        c["C1"] = 1 if (cagr and cagr > 10) else 0
-
-        ebit_s = _series(inc, "EBIT", "Operating Income")
-        ta_s   = _series(bal, "Total Assets")
-        cl_s   = _series(bal, "Current Liabilities", "Total Current Liabilities")
-        roce_l = [ebit_s[i] / (ta_s[i] - cl_s[i]) * 100 for i in range(min(len(ebit_s), len(ta_s), len(cl_s))) if (ta_s[i] - cl_s[i]) > 0]
-        avg_roce = sum(roce_l) / len(roce_l) if roce_l else None
-        c["C2"] = 1 if (avg_roce and avg_roce > 15) else 0
-
         de_raw = info.get("debtToEquity")
         de = de_raw / 100 if de_raw is not None and de_raw > 10 else de_raw
         if de is None:
-            ltd_s = _series(bal, "Long Term Debt")
-            eq_s  = _series(bal, "Stockholders Equity", "Total Stockholder Equity")
-            de = (ltd_s[0] / abs(eq_s[0])) if (ltd_s and eq_s and eq_s[0] != 0) else None
-        c["C3"] = 1 if (de is not None and de < 1) else 0
-
+            de = fund.debt_to_equity_from_balance(
+                bal, equity_rows=("Stockholders Equity", "Total Stockholder Equity"))
         mcap = info.get("marketCap") or getattr(ticker.fast_info, "market_cap", 0)
+        cc = fund.coffee_can_flags(inc, bal, cf, de, ebit_rows=("EBIT", "Operating Income"))
+        c = dict(cc.flags)
         c["C4"] = 1 if mcap >= 1e9 else 0  # >= 1 Billion EUR
-
-        ni_s = _series(inc, "Net Income")
-        c["C5"] = 1 if (ni_s and all(n > 0 for n in ni_s)) else 0
-
-        fcf_s = _series(cf, "Free Cash Flow")
-        if fcf_s:
-            c["C6"] = 1 if fcf_s[0] > 0 else 0
-        else:
-            ocf_s, capex_s = _series(cf, "Operating Cash Flow"), _series(cf, "Capital Expenditure")
-            c["C6"] = 1 if (ocf_s and capex_s and (ocf_s[0] - abs(capex_s[0])) > 0) else 0
-
         qualifies = sum(c.values()) == len(c)
         res.update({
             "cc_qualifies":   "PASS" if qualifies else "FAIL",
             "cc_score":       f"{sum(c.values())}/{len(c)}",
-            "cc_rev_cagr":    round(cagr, 2) if cagr else None,
-            "cc_roce_avg":    round(avg_roce, 2) if avg_roce else None,
+            "cc_rev_cagr":    round(cc.cagr, 2) if cc.cagr else None,
+            "cc_roce_avg":    round(cc.avg_roce, 2) if cc.avg_roce else None,
             "cc_debt_equity": round(de, 2) if de else None,
         })
-    except Exception:
-        pass
+        return True, mcap
+    except Exception:  # keep the F-Score even if Coffee Can inputs are malformed
+        return False, None
 
-    # ── 3. Valuation & PEGY ───────────────────────────────────────────────────
+
+def _eu_valuation(res: dict, info, mcap) -> None:
+    """Screener 3: valuation and PEGY (PEG + dividend yield); skipped if inputs are unusable."""
     try:
         pe  = info.get("trailingPE") or info.get("forwardPE") or info.get("regularMarketPrice", 0) / (info.get("trailingEps") or 1)
         peg = info.get("pegRatio")
@@ -226,10 +161,38 @@ def fundamental_scan(symbol: str) -> dict:
             "dividend_yield":  round(dy, 2),
             "pegy_ratio":      round(pegy, 2) if pegy else None,
         })
-    except Exception:
+    except Exception:  # missing/odd valuation fields: leave the valuation keys out
         pass
 
+
+def fundamental_scan(symbol: str) -> dict:
+    """Fetch financials and execute F-Score, Coffee Can, and PEGY calculations in one Ticker call."""
+    res = {"symbol": symbol, "f_score": None, "cc_qualifies": "FAIL", "error": None}
+    try:
+        ticker = yf.Ticker(symbol)
+        inc = _first_df(ticker, "income_stmt", "financials")
+        bal = _first_df(ticker, "balance_sheet")
+        cf  = _first_df(ticker, "cash_flow", "cashflow")
+
+        info = {}
+        try:
+            info = ticker.info or {}
+        except Exception:  # info is a network call; absence is not fatal
+            pass
+
+        if inc is None or inc.empty:
+            res["error"] = "no_financial_statements"
+            return res
+    except Exception as e:
+        res["error"] = str(e)[:80]
+        return res
+
+    _eu_piotroski(res, inc, bal, cf)
+    ok, mcap = _eu_coffee_can(res, ticker, info, inc, bal, cf)
+    if ok:  # mcap is only known when the Coffee Can block ran to the market-cap step
+        _eu_valuation(res, info, mcap)
     return res
+
 
 # ── Sheet Styling ─────────────────────────────────────────────────────────────
 def style_excel_sheet(ws):
