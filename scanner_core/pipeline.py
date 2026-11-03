@@ -48,3 +48,24 @@ def count_screeners(sc_counts: Dict[str, int], res: dict) -> None:
     if res.get("qualifies_cc"): sc_counts["cc"]        += 1
     if res.get("qualifies_mf"): sc_counts["mf"]        += 1
     if res.get("qualifies_bc"): sc_counts["bc"]        += 1
+
+
+def write_scan_workbook(path, sheets, style_fn=None) -> None:
+    """Write ``sheets`` (``[(rows, sheet_name, sort_col), ...]``) to one Excel workbook.
+
+    Empty row lists produce an empty sheet; ``sort_col`` sorts descending when present;
+    ``style_fn(worksheet)`` (optional) styles each non-empty sheet.
+    """
+    import pandas as pd
+
+    with pd.ExcelWriter(path, engine="openpyxl") as writer:
+        for rows, name, sort_col in sheets:
+            if not rows:
+                pd.DataFrame().to_excel(writer, sheet_name=name, index=False)
+                continue
+            df = pd.DataFrame(rows)
+            if sort_col and sort_col in df.columns:
+                df = df.sort_values(sort_col, ascending=False)
+            df.to_excel(writer, sheet_name=name, index=False)
+            if style_fn:
+                style_fn(writer.sheets[name])
