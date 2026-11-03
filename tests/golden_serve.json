@@ -1,0 +1,181 @@
+{
+"routes": [
+"delete /watchlists/{name}",
+"get /filter",
+"get /ggg",
+"get /health",
+"get /markets",
+"get /screen/{name}",
+"get /watchlists",
+"get /watchlists/{name}",
+"get /watchlists/{name}/history",
+"post /watchlists/{name}",
+"put /watchlists/{name}"
+],
+"GET /health": [
+200,
+{
+"status": "ok"
+}
+],
+"GET /markets": [
+200,
+[
+{
+"query": "SELECT market, count(DISTINCT ticker) tickers, count(*) bars FROM ohlc GROUP BY 1 ORDER BY tickers DESC"
+}
+]
+],
+"GET /ggg?market=IN&limit=3": [
+200,
+[
+{
+"query": "SELECT market, ticker, D, V, M, composite, label FROM dvm_composite WHERE code='GGG' AND market='IN' ORDER BY composite DESC LIMIT 3"
+}
+]
+],
+"GET /ggg": [
+200,
+[
+{
+"query": "SELECT market, ticker, D, V, M, composite, label FROM dvm_composite WHERE code='GGG' ORDER BY composite DESC LIMIT 25"
+}
+]
+],
+"GET /screen/nonexistent": [
+404,
+{
+"detail": "\"unknown query 'nonexistent'; choices=['dvm_dist', 'ggg', 'high_roe_low_de', 'markets']\""
+}
+],
+"GET /filter?predicate=roe%20%3E%2015": [
+200,
+[
+{
+"query": "SELECT c.market, c.ticker, c.D, c.V, c.M, c.composite, c.code, f.roe, f.de, f.pe FROM dvm_composite c LEFT JOIN fundamentals f ON c.ticker=f.ticker WHERE roe > 15 ORDER BY c.composite DESC LIMIT 30"
+}
+]
+],
+"GET /filter?predicate=drop%20table%3B": [
+400,
+{
+"detail": "illegal characters in predicate"
+}
+],
+"GET /watchlists": [
+200,
+[
+"a",
+"b"
+]
+],
+"POST /watchlists/w1": [
+200,
+{
+"name": "w1",
+"tickers": [
+"AAPL"
+],
+"note": "n"
+}
+],
+"POST /watchlists/dup": [
+409,
+{
+"detail": "exists"
+}
+],
+"GET /watchlists/w1": [
+200,
+{
+"name": "w1",
+"tickers": [
+"X"
+]
+}
+],
+"GET /watchlists/missing": [
+404,
+{
+"detail": "watchlist/missing not found"
+}
+],
+"PUT /watchlists/w1": [
+200,
+{
+"name": "w1",
+"tickers": [
+"X"
+]
+}
+],
+"DELETE /watchlists/w1": [
+200,
+{
+"deleted": true
+}
+],
+"GET /watchlists/w1/history": [
+200,
+[
+{
+"v": 1
+}
+]
+],
+"log": [
+"SELECT market, count(DISTINCT ticker) tickers, count(*) bars FROM ohlc GROUP BY 1 ORDER BY tickers DESC",
+"closed",
+"SELECT market, ticker, D, V, M, composite, label FROM dvm_composite WHERE code='GGG' AND market='IN' ORDER BY composite DESC LIMIT 3",
+"closed",
+"SELECT market, ticker, D, V, M, composite, label FROM dvm_composite WHERE code='GGG' ORDER BY composite DESC LIMIT 25",
+"closed",
+"SELECT c.market, c.ticker, c.D, c.V, c.M, c.composite, c.code, f.roe, f.de, f.pe FROM dvm_composite c LEFT JOIN fundamentals f ON c.ticker=f.ticker WHERE roe > 15 ORDER BY c.composite DESC LIMIT 30",
+"closed",
+"vc.connect",
+"closed",
+"vc.connect",
+"closed",
+"vc.connect",
+"closed",
+"vc.connect",
+"closed",
+"vc.connect",
+"closed",
+"vc.connect",
+[
+"add",
+[
+"w1",
+"tickers",
+[
+"X"
+]
+]
+],
+[
+"remove",
+[
+"w1",
+"tickers",
+[
+"Y"
+]
+]
+],
+[
+"update",
+[
+"w1",
+{
+"note": "z"
+}
+]
+],
+"closed",
+"vc.connect",
+"closed",
+"vc.connect",
+"closed"
+]
+}
