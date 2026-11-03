@@ -411,6 +411,9 @@ def compute_golden_crossover(df: pd.DataFrame) -> dict:
 
 # Shared helpers (see stock_utils.py) — aliased to keep existing call sites.
 from scanner_core import fundamentals as fund
+from scanner_core.pipeline import (count_screeners, new_screener_counts, ohlc_counts,
+                                   screens_passed as count_screens_passed,
+                                   triple_rows as pipeline_triple_rows)
 from scanner_core.fundamentals import Statements
 from stock_utils import series as _series
 
@@ -685,16 +688,6 @@ def _screen_ohlc(ohlc_data: dict, min_price: float):
     return all_rows, darvas_rows, ohlc_row_map
 
 
-def _ohlc_counts(all_rows: list) -> dict:
-    """Counts of Darvas and Golden-Crossover outcomes over the OHLC rows."""
-    return {
-        "breakout":  sum(1 for r in all_rows if r["Darvas_Signal"] == "BREAKOUT_BUY"),
-        "breakdown": sum(1 for r in all_rows if r["Darvas_Signal"] == "BREAKDOWN_SELL"),
-        "gc":        sum(1 for r in all_rows if r["GC_Signal"] == "GOLDEN_CROSS"),
-        "above_200": sum(1 for r in all_rows if r["GC_Signal"] in ("GOLDEN_CROSS", "ABOVE_200DMA")),
-    }
-
-
 def _fundamental_row(sym: str, res: dict, ohlc: dict) -> dict:
     """Merge one symbol's fundamental result with its OHLC row into a report row."""
     return {
@@ -727,25 +720,13 @@ def _fundamental_row(sym: str, res: dict, ohlc: dict) -> dict:
     }
 
 
-def _screens_passed(ohlc: dict, res: dict) -> int:
-    """How many of the six screens (Darvas, Golden Crossover, 4 fundamentals) a symbol passes."""
-    return sum([
-        ohlc.get("Darvas_Signal") == "BREAKOUT_BUY",
-        ohlc.get("GC_Signal") in ("GOLDEN_CROSS", "ABOVE_200DMA"),
-        bool(res.get("f_strong")),
-        bool(res.get("qualifies_cc")),
-        bool(res.get("qualifies_mf")),
-        bool(res.get("qualifies_bc")),
-    ])
-
-
 def _run_fundamentals(ohlc_row_map: dict, workers: int):
     """Stage 4: all fundamental screeners on every stock.
 
     Returns ``(fund_rows, six_screen_rows, sc_counts)``.
     """
     fund_rows, six_screen_rows = [], []
-    sc_counts = {"piotroski": 0, "cc": 0, "mf": 0, "bc": 0}
+    sc_counts = new_screener_counts()
     all_syms_for_fund = list(ohlc_row_map.keys())
     print(f"\nStage 4 — All 5 fundamental screeners on {len(all_syms_for_fund)} stocks "
           f"({workers} workers) …")
@@ -761,12 +742,9 @@ def _run_fundamentals(ohlc_row_map: dict, workers: int):
                 row  = _fundamental_row(sym, res, ohlc)
                 fund_rows.append(row)
 
-                if res.get("f_strong"):     sc_counts["piotroski"] += 1
-                if res.get("qualifies_cc"): sc_counts["cc"]        += 1
-                if res.get("qualifies_mf"): sc_counts["mf"]        += 1
-                if res.get("qualifies_bc"): sc_counts["bc"]        += 1
+                count_screeners(sc_counts, res)
 
-                screens_passed = _screens_passed(ohlc, res)
+                screens_passed = count_screens_passed(ohlc, res)
                 if screens_passed >= 3:
                     six_screen_rows.append({**row, "Screens_Passed": screens_passed})
 
@@ -857,7 +835,7 @@ def main(nasdaq_only: bool = False, top: int = 0, run_scans: bool = True,
 
     print("Stage 3 — Darvas Box + Golden Crossover screen (all stocks) …")
     all_rows, darvas_rows, ohlc_row_map = _screen_ohlc(ohlc_data, min_price)
-    counts = _ohlc_counts(all_rows)
+    counts = ohlc_counts(all_rows)
     print(f"  Darvas Breakout BUY:    {counts['breakout']}")
     print(f"  Darvas Breakdown SELL:  {counts['breakdown']}")
     print(f"  Golden Cross (today):   {counts['gc']}")
@@ -867,14 +845,11 @@ def main(nasdaq_only: bool = False, top: int = 0, run_scans: bool = True,
         fund_rows, six_screen_rows, sc_counts = _run_fundamentals(ohlc_row_map, workers)
     else:
         fund_rows, six_screen_rows = [], []
-        sc_counts = {"piotroski": 0, "cc": 0, "mf": 0, "bc": 0}
+        sc_counts = new_screener_counts()
         print("\nStage 4 — Skipped (--no-scans)")
 
     # Backward-compat triple_rows
-    triple_rows = [r for r in fund_rows
-                   if r.get("Darvas_Signal") == "BREAKOUT_BUY"
-                   and r.get("Piotroski_Strong") == "YES"
-                   and r.get("CoffeeCan") == "PASS"]
+    triple_rows = pipeline_triple_rows(fund_rows)
 
     ml_signal_map: dict = {}
     if _ML_OK and ohlc_data:

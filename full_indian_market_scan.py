@@ -320,6 +320,8 @@ def compute_golden_crossover(df: pd.DataFrame) -> dict:
 
 # Shared helpers (see stock_utils.py) — aliased to keep existing call sites.
 from scanner_core import fundamentals as fund
+from scanner_core.pipeline import (count_screeners, new_screener_counts, ohlc_counts,
+                                   screens_passed, triple_rows as pipeline_triple_rows)
 
 
 def _in_failed_scan(symbol: str, error: str) -> dict:
@@ -467,22 +469,28 @@ def save_excel(all_rows, darvas_rows, fund_rows, triple_rows,
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
-def main(nse_only: bool = False, top: int = 0, run_scans: bool = True,
-         workers: int = MAX_WORKERS):
-
+def _print_banner() -> None:
+    """Scan header with start time."""
     print(f"\n{'#'*60}")
     print(f"  FULL INDIAN MARKET SCAN")
     print(f"  Started: {datetime.now().strftime('%d %b %Y  %H:%M:%S')}")
     print(f"{'#'*60}\n")
 
-    # ── Live market context from nsepython ───────────────────────────────────
+
+def _print_live_context() -> None:
+    """Live market context from nsepython (best effort)."""
     if _USE_NSE_FETCHER:
         try:
             _NSE_FETCHER.print_live_context()
         except Exception as e:
             print(f"  ⚠️  Live context unavailable: {e}\n")
 
-    # ── Stage 1: symbol lists (cached for 24 h) ──────────────────────────────
+
+def _build_yf_map(nse_only: bool, top: int):
+    """Stage 1: symbol lists (cached 24 h) -> ``(all_tickers, yf_map)``.
+
+    ``yf_map`` maps yfinance ticker -> (symbol, suffix): NSE as SYMBOL.NS, BSE-only as CODE.BO.
+    """
     nse_symbols, bse_only = _load_symbol_cache()
     if nse_symbols is None:
         print("Fetching NSE symbol list (nsepython) …")
@@ -498,7 +506,6 @@ def main(nse_only: bool = False, top: int = 0, run_scans: bool = True,
         if nse_only:
             bse_only = []
 
-    # Build yfinance ticker list: NSE symbols → SYMBOL.NS, BSE-only → CODE.BO
     yf_map: dict[str, tuple[str, str]] = {}   # yf_ticker → (nse_symbol, suffix)
     for sym in nse_symbols:
         yf_map[f"{sym}.NS"] = (sym, ".NS")
@@ -511,170 +518,142 @@ def main(nse_only: bool = False, top: int = 0, run_scans: bool = True,
         print(f"  (limited to first {top} tickers)")
 
     print(f"\nTotal tickers to scan: {len(all_tickers)}")
+    return all_tickers, yf_map
 
-    # ── Stage 2: bulk OHLC download ──────────────────────────────────────────
-    print("\nStage 2 — Bulk OHLC download (1-year window; needed for Golden Crossover 200 DMA) …")
-    ohlc_data = bulk_download_ohlc(all_tickers, period="1y")
-    print(f"  → {len(ohlc_data)} tickers with usable OHLC data\n")
 
-    # ── Stage 3: Darvas Box screen ───────────────────────────────────────────
-    # Stage 3: Darvas Box + Golden Crossover on every ticker (OHLC only — no API calls)
-    print("Stage 3 — Darvas Box + Golden Crossover screen (all stocks) …")
+def _ohlc_row(sym: str, suffix: str, df: pd.DataFrame):
+    """Price / Darvas / Golden-Crossover summary row for one ticker -> ``(row, darvas_signal)``."""
+    darvas = compute_darvas_box(df)
+    gc     = compute_golden_crossover(df)
+    closes = pd.to_numeric(df["Close"], errors="coerce").dropna()
+    ltp    = round(float(closes.iloc[-1]), 2) if not closes.empty else None
+    prev   = round(float(closes.iloc[-2]), 2) if len(closes) >= 2 else None
+    chg    = round((ltp - prev) / prev * 100, 2) if (ltp and prev) else None
+    return {
+        "Symbol":              sym,
+        "Suffix":              suffix,
+        "LTP":                 ltp,
+        "Prev_Close":          prev,
+        "Change%":             chg,
+        # Darvas
+        "Darvas_Signal":       darvas.get("signal"),
+        "Box_Top":             darvas.get("box_top"),
+        "Box_Bottom":          darvas.get("box_bottom"),
+        "Upside_to_Top%":      darvas.get("upside_to_top_pct"),
+        "Position_in_Box%":    darvas.get("position_in_box_pct"),
+        "Data_Points":         darvas.get("data_points"),
+        # Golden Crossover
+        "GC_Signal":           "GOLDEN_CROSS" if gc.get("gc_signal") else (
+                                   "ABOVE_200DMA" if gc.get("dma50_above_200") else "BELOW_200DMA"),
+        "DMA50":               gc.get("dma50"),
+        "DMA200":              gc.get("dma200"),
+        "DMA_Gap%":            gc.get("dma_gap_%"),
+    }
+
+
+def _screen_ohlc(ohlc_data: dict, yf_map: dict):
+    """Stage 3: Darvas Box + Golden Crossover on every ticker (OHLC only, no API calls).
+
+    Returns ``(all_rows, darvas_rows, ohlc_row_map)``; the map (symbol -> row) enriches Stage 4.
+    """
     all_rows, darvas_rows = [], []
-    # Map: symbol → OHLC base_row (used to enrich fundamental results in Stage 4)
     ohlc_row_map: dict[str, dict] = {}
-
     for yf_tkr, df in ohlc_data.items():
         sym, suffix = yf_map.get(yf_tkr, (yf_tkr, ""))
-        darvas = compute_darvas_box(df)
-        gc     = compute_golden_crossover(df)
-        closes = pd.to_numeric(df["Close"], errors="coerce").dropna()
-        ltp    = round(float(closes.iloc[-1]), 2) if not closes.empty else None
-        prev   = round(float(closes.iloc[-2]), 2) if len(closes) >= 2 else None
-        chg    = round((ltp - prev) / prev * 100, 2) if (ltp and prev) else None
-
-        base_row = {
-            "Symbol":              sym,
-            "Suffix":              suffix,
-            "LTP":                 ltp,
-            "Prev_Close":          prev,
-            "Change%":             chg,
-            # Darvas
-            "Darvas_Signal":       darvas.get("signal"),
-            "Box_Top":             darvas.get("box_top"),
-            "Box_Bottom":          darvas.get("box_bottom"),
-            "Upside_to_Top%":      darvas.get("upside_to_top_pct"),
-            "Position_in_Box%":    darvas.get("position_in_box_pct"),
-            "Data_Points":         darvas.get("data_points"),
-            # Golden Crossover
-            "GC_Signal":           "GOLDEN_CROSS" if gc.get("gc_signal") else (
-                                       "ABOVE_200DMA" if gc.get("dma50_above_200") else "BELOW_200DMA"),
-            "DMA50":               gc.get("dma50"),
-            "DMA200":              gc.get("dma200"),
-            "DMA_Gap%":            gc.get("dma_gap_%"),
-        }
+        base_row = _ohlc_row(sym, suffix, df)
         all_rows.append(base_row)
         ohlc_row_map[sym] = base_row
-
-        if darvas.get("signal") in ("BREAKOUT_BUY", "BREAKDOWN_SELL"):
+        if base_row["Darvas_Signal"] in ("BREAKOUT_BUY", "BREAKDOWN_SELL"):
             darvas_rows.append(base_row.copy())
+    return all_rows, darvas_rows, ohlc_row_map
 
-    breakout_count   = sum(1 for r in all_rows if r["Darvas_Signal"] == "BREAKOUT_BUY")
-    breakdown_count  = sum(1 for r in all_rows if r["Darvas_Signal"] == "BREAKDOWN_SELL")
-    gc_count         = sum(1 for r in all_rows if r["GC_Signal"] == "GOLDEN_CROSS")
-    above_200_count  = sum(1 for r in all_rows if r["GC_Signal"] in ("GOLDEN_CROSS","ABOVE_200DMA"))
-    print(f"  Darvas Breakout BUY:    {breakout_count}")
-    print(f"  Darvas Breakdown SELL:  {breakdown_count}")
-    print(f"  Golden Cross (today):   {gc_count}")
-    print(f"  DMA50 above DMA200:     {above_200_count}")
 
-    # ── Stage 4: ALL 5 fundamental screeners on EVERY stock ──────────────────
-    # Run on every ticker that returned OHLC data — no pre-filtering.
-    # All 4 screeners (Piotroski, Coffee Can, Magic Formula, Bull Cartel) are
-    # computed inside one Ticker() call per stock, so this is as efficient
-    # as possible while giving complete coverage of the full universe.
-    all_fund_symbols = [(sym, suf) for yf_tkr, (sym, suf) in yf_map.items()
-                        if yf_tkr in ohlc_data]
+def _fundamental_row(sym: str, suffix: str, res: dict, ohlc: dict) -> dict:
+    """Merge one symbol's fundamental result with its OHLC row into a report row."""
+    return {
+        "Symbol":              sym,
+        "Suffix":              suffix,
+        "LTP":                 ohlc.get("LTP"),
+        "Change%":             ohlc.get("Change%"),
+        # Darvas
+        "Darvas_Signal":       ohlc.get("Darvas_Signal"),
+        "Box_Top":             ohlc.get("Box_Top"),
+        "Box_Bottom":          ohlc.get("Box_Bottom"),
+        "Upside_to_Top%":      ohlc.get("Upside_to_Top%"),
+        # Golden Crossover
+        "GC_Signal":           ohlc.get("GC_Signal"),
+        "DMA50":               ohlc.get("DMA50"),
+        "DMA200":              ohlc.get("DMA200"),
+        # Piotroski
+        "Piotroski_Score":     res.get("f_score"),
+        "Piotroski_Strong":    "YES" if res.get("f_strong") else "NO",
+        # Coffee Can
+        "CoffeeCan":           "PASS" if res.get("qualifies_cc") else "FAIL",
+        "CC_Score":            res.get("cc_score"),
+        "Revenue_CAGR_%":      res.get("Revenue_CAGR_%"),
+        "ROCE_avg_%":          res.get("ROCE_avg_%"),
+        # Magic Formula
+        "MagicFormula":        "PASS" if res.get("qualifies_mf") else "FAIL",
+        "ROIC_%":              res.get("ROIC_%"),
+        "Earnings_Yield_%":    res.get("Earnings_Yield_%"),
+        # Bull Cartel
+        "BullCartel":          "PASS" if res.get("qualifies_bc") else "FAIL",
+        "Sales_Growth_YoY_%":  res.get("Sales_Growth_YoY_%"),
+        "Profit_Growth_YoY_%": res.get("Profit_Growth_YoY_%"),
+        "Net_Profit_Cr":       res.get("Net_Profit_Cr"),
+        "Error":               res.get("error", ""),
+    }
 
+
+def _run_fundamentals(all_fund_symbols: list, ohlc_row_map: dict, workers: int):
+    """Stage 4: all fundamental screeners on every ticker that returned OHLC data.
+
+    Returns ``(fund_rows, six_screen_rows, sc_counts)``. Every screener is computed inside one
+    Ticker() call per stock, so coverage of the full universe stays as cheap as possible.
+    """
     fund_rows, six_screen_rows = [], []
-    # Screener accumulators for summary counts
-    sc_counts = {"piotroski": 0, "cc": 0, "mf": 0, "bc": 0}
+    sc_counts = new_screener_counts()
+    print(f"\nStage 4 — All 5 fundamental screeners on {len(all_fund_symbols)} stocks "
+          f"({workers} workers) …")
+    done = 0
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {
+            pool.submit(fundamental_scan, sym, suffix): (sym, suffix)
+            for sym, suffix in all_fund_symbols
+        }
+        for future in as_completed(futures):
+            sym, suffix = futures[future]
+            done += 1
+            try:
+                res = future.result()
+                ohlc = ohlc_row_map.get(sym, {})
+                row = _fundamental_row(sym, suffix, res, ohlc)
+                fund_rows.append(row)
+                count_screeners(sc_counts, res)
 
-    if run_scans:
-        print(f"\nStage 4 — All 5 fundamental screeners on {len(all_fund_symbols)} stocks "
-              f"({workers} workers) …")
-        done = 0
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = {
-                pool.submit(fundamental_scan, sym, suffix): (sym, suffix)
-                for sym, suffix in all_fund_symbols
-            }
-            for future in as_completed(futures):
-                sym, suffix = futures[future]
-                done += 1
-                try:
-                    res = future.result()
-                    ohlc = ohlc_row_map.get(sym, {})
-                    row = {
-                        "Symbol":              sym,
-                        "Suffix":              suffix,
-                        "LTP":                 ohlc.get("LTP"),
-                        "Change%":             ohlc.get("Change%"),
-                        # Darvas
-                        "Darvas_Signal":       ohlc.get("Darvas_Signal"),
-                        "Box_Top":             ohlc.get("Box_Top"),
-                        "Box_Bottom":          ohlc.get("Box_Bottom"),
-                        "Upside_to_Top%":      ohlc.get("Upside_to_Top%"),
-                        # Golden Crossover
-                        "GC_Signal":           ohlc.get("GC_Signal"),
-                        "DMA50":               ohlc.get("DMA50"),
-                        "DMA200":              ohlc.get("DMA200"),
-                        # Piotroski
-                        "Piotroski_Score":     res.get("f_score"),
-                        "Piotroski_Strong":    "YES" if res.get("f_strong") else "NO",
-                        # Coffee Can
-                        "CoffeeCan":           "PASS" if res.get("qualifies_cc") else "FAIL",
-                        "CC_Score":            res.get("cc_score"),
-                        "Revenue_CAGR_%":      res.get("Revenue_CAGR_%"),
-                        "ROCE_avg_%":          res.get("ROCE_avg_%"),
-                        # Magic Formula
-                        "MagicFormula":        "PASS" if res.get("qualifies_mf") else "FAIL",
-                        "ROIC_%":              res.get("ROIC_%"),
-                        "Earnings_Yield_%":    res.get("Earnings_Yield_%"),
-                        # Bull Cartel
-                        "BullCartel":          "PASS" if res.get("qualifies_bc") else "FAIL",
-                        "Sales_Growth_YoY_%":  res.get("Sales_Growth_YoY_%"),
-                        "Profit_Growth_YoY_%": res.get("Profit_Growth_YoY_%"),
-                        "Net_Profit_Cr":       res.get("Net_Profit_Cr"),
-                        "Error":               res.get("error", ""),
-                    }
-                    fund_rows.append(row)
+                # Six-screen hit: passes Darvas + GC + Piotroski + CC + MF + BC
+                passed = screens_passed(ohlc, res)
+                if passed >= 3:
+                    six_screen_rows.append({**row, "Screens_Passed": passed})
 
-                    if res.get("f_strong"):       sc_counts["piotroski"] += 1
-                    if res.get("qualifies_cc"):   sc_counts["cc"]        += 1
-                    if res.get("qualifies_mf"):   sc_counts["mf"]        += 1
-                    if res.get("qualifies_bc"):   sc_counts["bc"]        += 1
+                if done % 100 == 0 or done == len(all_fund_symbols):
+                    print(f"    {done}/{len(all_fund_symbols)} done  "
+                          f"(6-screen hits so far: {len(six_screen_rows)})")
+            except Exception as e:
+                print(f"    {sym}: error — {e}")
+    return fund_rows, six_screen_rows, sc_counts
 
-                    # Six-screen hit: passes Darvas + GC + Piotroski + CC + MF + BC
-                    screens_passed = sum([
-                        ohlc.get("Darvas_Signal") == "BREAKOUT_BUY",
-                        ohlc.get("GC_Signal") in ("GOLDEN_CROSS", "ABOVE_200DMA"),
-                        bool(res.get("f_strong")),
-                        bool(res.get("qualifies_cc")),
-                        bool(res.get("qualifies_mf")),
-                        bool(res.get("qualifies_bc")),
-                    ])
-                    if screens_passed >= 3:
-                        six_screen_rows.append({**row, "Screens_Passed": screens_passed})
 
-                    if done % 100 == 0 or done == len(all_fund_symbols):
-                        print(f"    {done}/{len(all_fund_symbols)} done  "
-                              f"(6-screen hits so far: {len(six_screen_rows)})")
-                except Exception as e:
-                    print(f"    {sym}: error — {e}")
-    else:
-        print("\nStage 4 — Skipped (--no-scans)")
-
-    # Derive triple_rows for backward compat (Darvas + Piotroski + CC)
-    triple_rows = [r for r in fund_rows
-                   if r.get("Darvas_Signal") == "BREAKOUT_BUY"
-                   and r.get("Piotroski_Strong") == "YES"
-                   and r.get("CoffeeCan") == "PASS"]
-
-    # ── Stage 5: Save results ─────────────────────────────────────────────────
-    print("\nStage 5 — Saving results …")
-    path = save_excel(all_rows, darvas_rows, fund_rows, triple_rows,
-                      six_screen_rows, tag="indian")
-
-    # Summary
+def _print_summary(all_rows, counts, sc_counts, triple_rows, six_screen_rows) -> None:
+    """Final console report."""
     print(f"\n{'='*70}")
     print(f"  SCAN COMPLETE — {datetime.now().strftime('%d %b %Y  %H:%M:%S')}")
     print(f"  Tickers scanned:          {len(all_rows)}")
     print(f"  ── OHLC Screeners ──────────────────────────────────────")
-    print(f"  Darvas Breakouts:         {breakout_count}")
-    print(f"  Darvas Breakdowns:        {breakdown_count}")
-    print(f"  Golden Cross (today):     {gc_count}")
-    print(f"  DMA50 above DMA200:       {above_200_count}")
+    print(f"  Darvas Breakouts:         {counts['breakout']}")
+    print(f"  Darvas Breakdowns:        {counts['breakdown']}")
+    print(f"  Golden Cross (today):     {counts['gc']}")
+    print(f"  DMA50 above DMA200:       {counts['above_200']}")
     print(f"  ── Fundamental Screeners ────────────────────────────────")
     print(f"  Piotroski ≥7 (Strong):    {sc_counts.get('piotroski', 0)}")
     print(f"  Coffee Can PASS:          {sc_counts.get('cc', 0)}")
@@ -692,11 +671,49 @@ def main(nse_only: bool = False, top: int = 0, run_scans: bool = True,
                   f"CC={r.get('CC_Score','-')}  MF={r.get('MagicFormula','-')}  "
                   f"LTP=₹{r.get('LTP','?')}")
     print(f"{'='*70}\n")
+
+
+def main(nse_only: bool = False, top: int = 0, run_scans: bool = True,
+         workers: int = MAX_WORKERS):
+    """Run the five-stage NSE+BSE scan and return the headline result dict."""
+    _print_banner()
+    _print_live_context()
+    all_tickers, yf_map = _build_yf_map(nse_only, top)
+
+    print("\nStage 2 — Bulk OHLC download (1-year window; needed for Golden Crossover 200 DMA) …")
+    ohlc_data = bulk_download_ohlc(all_tickers, period="1y")
+    print(f"  → {len(ohlc_data)} tickers with usable OHLC data\n")
+
+    print("Stage 3 — Darvas Box + Golden Crossover screen (all stocks) …")
+    all_rows, darvas_rows, ohlc_row_map = _screen_ohlc(ohlc_data, yf_map)
+    counts = ohlc_counts(all_rows)
+    print(f"  Darvas Breakout BUY:    {counts['breakout']}")
+    print(f"  Darvas Breakdown SELL:  {counts['breakdown']}")
+    print(f"  Golden Cross (today):   {counts['gc']}")
+    print(f"  DMA50 above DMA200:     {counts['above_200']}")
+
+    all_fund_symbols = [(sym, suf) for yf_tkr, (sym, suf) in yf_map.items()
+                        if yf_tkr in ohlc_data]
+    if run_scans:
+        fund_rows, six_screen_rows, sc_counts = _run_fundamentals(
+            all_fund_symbols, ohlc_row_map, workers)
+    else:
+        fund_rows, six_screen_rows = [], []
+        sc_counts = new_screener_counts()
+        print("\nStage 4 — Skipped (--no-scans)")
+
+    triple_rows = pipeline_triple_rows(fund_rows)  # Darvas + Piotroski + CC, kept for compat
+
+    print("\nStage 5 — Saving results …")
+    path = save_excel(all_rows, darvas_rows, fund_rows, triple_rows,
+                      six_screen_rows, tag="indian")
+
+    _print_summary(all_rows, counts, sc_counts, triple_rows, six_screen_rows)
     return {
         "triple_hits": triple_rows,
         "six_screen_hits": six_screen_rows,
-        "breakout_count": breakout_count,
-        "gc_count": gc_count,
+        "breakout_count": counts["breakout"],
+        "gc_count": counts["gc"],
         "total_scanned": len(all_rows),
         "excel_path": str(path),
     }
