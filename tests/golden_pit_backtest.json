@@ -1,0 +1,94 @@
+{
+"scan": {
+"stdout": "\n=== TRIPLE-HIT vs GATE COMPONENTS \u2014 5y US, net of cost ===\n         arm  n_months avg_picks  avg_mth%  ann_return%  hit_rate%  sharpe  max_dd%\n    A_darvas         8       1.1     3.742        52.98       75.0    2.45     -4.6\n B_darvas_F7         6       1.0     1.115        12.91       66.7    0.86     -6.2\nC_triple_hit         1       1.0     1.129        14.43      100.0    0.00      0.0\n   BENCH_all        16       all     1.845        24.06       68.8    2.50     -4.0\n\nA=Darvas \u00b7 B=Darvas+F\u22657 \u00b7 C=Darvas+F\u22657+CoffeeCan (Triple-Hit) \u00b7 BENCH=equal-weight all. Net of 0.10% US round-trip.\n",
+"stderr": "5 usable series\nliquidity filter (median $-vol >= $2,000,000/day): 5 -> 4 tradeable names\n  2023-04-01: breakouts=1 F7=1 triple=0\n  2023-05-01: breakouts=1 F7=1 triple=0\n  2023-06-01: breakouts=0 F7=0 triple=0\n  2023-07-01: breakouts=1 F7=1 triple=1\n  2023-08-01: breakouts=2 F7=1 triple=0\n  2023-09-01: breakouts=0 F7=0 triple=0\n  2023-10-01: breakouts=1 F7=1 triple=0\n  2023-11-01: breakouts=1 F7=1 triple=0\n  2023-12-01: breakouts=0 F7=0 triple=0\n  2024-01-01: breakouts=0 F7=0 triple=0\n  2024-02-01: breakouts=0 F7=0 triple=0\n  2024-03-01: breakouts=0 F7=0 triple=0\n  2024-04-01: breakouts=0 F7=0 triple=0\n  2024-05-01: breakouts=1 F7=0 triple=0\n  2024-06-01: breakouts=0 F7=0 triple=0\n  2024-07-01: breakouts=1 F7=0 triple=0\n",
+"rows": [
+[
+"A_darvas",
+8,
+"1.1",
+3.742,
+52.98,
+75.0,
+2.45,
+-4.6
+],
+[
+"B_darvas_F7",
+6,
+"1.0",
+1.115,
+12.91,
+66.7,
+0.86,
+-6.2
+],
+[
+"C_triple_hit",
+1,
+"1.0",
+1.129,
+14.43,
+100.0,
+0.0,
+0.0
+],
+[
+"BENCH_all",
+16,
+"all",
+1.845,
+24.06,
+68.8,
+2.5,
+-4.0
+]
+]
+},
+"builtin": {
+"stdout": "\n=== TRIPLE-HIT vs GATE COMPONENTS \u2014 5y US, net of cost ===\n         arm  n_months avg_picks  avg_mth%  ann_return%  hit_rate%  sharpe  max_dd%\n    A_darvas        13       1.2     5.007        75.22       76.9    2.49     -4.6\n B_darvas_F7        12       1.1     4.130        58.44       75.0    2.05     -4.6\nC_triple_hit         1       1.0     1.129        14.43      100.0    0.00      0.0\n   BENCH_all        16       all     3.188        45.27       87.5    4.66     -0.8\n\nA=Darvas \u00b7 B=Darvas+F\u22657 \u00b7 C=Darvas+F\u22657+CoffeeCan (Triple-Hit) \u00b7 BENCH=equal-weight all. Net of 0.10% US round-trip.\n",
+"stderr": "5 usable series\nliquidity filter (median $-vol >= $0/day): 5 -> 5 tradeable names\n  2023-04-01: breakouts=1 F7=1 triple=0\n  2023-05-01: breakouts=1 F7=1 triple=0\n  2023-06-01: breakouts=1 F7=1 triple=0\n  2023-07-01: breakouts=1 F7=1 triple=1\n  2023-08-01: breakouts=3 F7=2 triple=0\n  2023-09-01: breakouts=1 F7=1 triple=0\n  2023-10-01: breakouts=1 F7=1 triple=0\n  2023-11-01: breakouts=1 F7=1 triple=0\n  2023-12-01: breakouts=0 F7=0 triple=0\n  2024-01-01: breakouts=0 F7=0 triple=0\n  2024-02-01: breakouts=0 F7=0 triple=0\n  2024-03-01: breakouts=1 F7=1 triple=0\n  2024-04-01: breakouts=1 F7=1 triple=0\n  2024-05-01: breakouts=2 F7=1 triple=0\n  2024-06-01: breakouts=1 F7=1 triple=0\n  2024-07-01: breakouts=1 F7=0 triple=0\n",
+"rows": [
+[
+"A_darvas",
+13,
+"1.2",
+5.007,
+75.22,
+76.9,
+2.49,
+-4.6
+],
+[
+"B_darvas_F7",
+12,
+"1.1",
+4.13,
+58.44,
+75.0,
+2.05,
+-4.6
+],
+[
+"C_triple_hit",
+1,
+"1.0",
+1.129,
+14.43,
+100.0,
+0.0,
+0.0
+],
+[
+"BENCH_all",
+16,
+"all",
+3.188,
+45.27,
+87.5,
+4.66,
+-0.8
+]
+]
+}
+}
