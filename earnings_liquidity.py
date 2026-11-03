@@ -254,6 +254,7 @@ def main():
               "\n  a cleaner, higher illiq_IC here = the liquidity-conditioning of PEAD confirmed.")
         return
 
+    import marketdata
     markets = (marketdata.market_list()
                if (args.all or not args.market) else [args.market])
 

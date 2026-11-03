@@ -207,82 +207,97 @@ class NSEDataFetcher:
             "fii_sentiment": "UNKNOWN",
             "timestamp":     datetime.now().isoformat(),
         }
+        self._add_nifty_quote(result)
+        self._add_nifty_dma200(result)
+        self._add_india_vix(result)
+        self._add_fii_activity(result)
+        result["regime"] = self._classify_regime(result)
+        return result
 
-        # ── Nifty 50 live ─────────────────────────────────────────────────────
-        if _NSEPY_OK:
-            try:
-                q = nse_get_index_quote("NIFTY 50")
-                if q:
-                    last   = float(q.get("last", 0))
-                    yh     = float(q.get("yearHigh", 0))
-                    yl     = float(q.get("yearLow", 0))
-                    result["nifty_last"]  = last
-                    result["nifty_52w_h"] = yh
-                    result["nifty_52w_l"] = yl
-                    result["pct_from_52wh"] = round((last - yh) / yh * 100, 2) if yh else None
-            except Exception:
-                pass
+    @staticmethod
+    def _add_nifty_quote(result: dict) -> None:
+        """Nifty 50 live level and 52-week range from NSE (best effort)."""
+        if not _NSEPY_OK:
+            return
+        try:
+            q = nse_get_index_quote("NIFTY 50")
+            if q:
+                last   = float(q.get("last", 0))
+                yh     = float(q.get("yearHigh", 0))
+                yl     = float(q.get("yearLow", 0))
+                result["nifty_last"]  = last
+                result["nifty_52w_h"] = yh
+                result["nifty_52w_l"] = yl
+                result["pct_from_52wh"] = round((last - yh) / yh * 100, 2) if yh else None
+        except Exception:  # NSE endpoint flaky: regime degrades gracefully
+            pass
 
-        # ── Nifty 200 DMA from yfinance ────────────────────────────────────────
-        if _YF_OK:
-            try:
-                idx = yf.download("^NSEI", period="1y", auto_adjust=True, progress=False)
-                if isinstance(idx.columns, pd.MultiIndex):
-                    idx = idx.xs("^NSEI", axis=1, level=1)
-                if not idx.empty:
-                    dma200 = float(idx["Close"].rolling(min(200, len(idx))).mean().iloc[-1])
-                    dma200_sl = float(idx["Close"].rolling(min(200, len(idx))).mean().diff(5).iloc[-1])
-                    last = float(idx["Close"].iloc[-1])
-                    result["dma200"]    = round(dma200, 2)
-                    result["dma200_sl"] = round(dma200_sl, 2)
-                    if not result["nifty_last"]:
-                        result["nifty_last"] = round(last, 2)
-                    pct_from_dma = (last - dma200) / dma200 * 100
-                    result["pct_from_dma200"] = round(pct_from_dma, 2)
-            except Exception:
-                pass
+    @staticmethod
+    def _add_nifty_dma200(result: dict) -> None:
+        """Nifty 200 DMA, its 5-day slope and distance from it (yfinance, best effort)."""
+        if not _YF_OK:
+            return
+        try:
+            idx = yf.download("^NSEI", period="1y", auto_adjust=True, progress=False)
+            if isinstance(idx.columns, pd.MultiIndex):
+                idx = idx.xs("^NSEI", axis=1, level=1)
+            if not idx.empty:
+                dma200 = float(idx["Close"].rolling(min(200, len(idx))).mean().iloc[-1])
+                dma200_sl = float(idx["Close"].rolling(min(200, len(idx))).mean().diff(5).iloc[-1])
+                last = float(idx["Close"].iloc[-1])
+                result["dma200"]    = round(dma200, 2)
+                result["dma200_sl"] = round(dma200_sl, 2)
+                if not result["nifty_last"]:
+                    result["nifty_last"] = round(last, 2)
+                pct_from_dma = (last - dma200) / dma200 * 100
+                result["pct_from_dma200"] = round(pct_from_dma, 2)
+        except Exception:  # yfinance download/format failure: leave DMA fields unset
+            pass
 
-        # ── India VIX ─────────────────────────────────────────────────────────
-        if _NSEPY_OK:
-            try:
-                vix = indiavix()
-                result["vix"] = round(float(vix), 2) if vix else None
-            except Exception:
-                pass
+    @staticmethod
+    def _add_india_vix(result: dict) -> None:
+        """India VIX level (best effort)."""
+        if not _NSEPY_OK:
+            return
+        try:
+            vix = indiavix()
+            result["vix"] = round(float(vix), 2) if vix else None
+        except Exception:  # NSE endpoint flaky
+            pass
 
-        # ── FII/DII net activity ───────────────────────────────────────────────
-        if _NSEPY_OK:
-            try:
-                fii_df = nse_fiidii()
-                if isinstance(fii_df, pd.DataFrame) and not fii_df.empty:
-                    # Sum recent FII net activity (last 5 sessions)
-                    net_col = next((c for c in fii_df.columns
-                                    if "net" in c.lower() and "fii" in c.lower()), None)
-                    if not net_col:
-                        net_col = next((c for c in fii_df.columns if "net" in c.lower()), None)
-                    if net_col:
-                        recent = fii_df[net_col].dropna().head(5)
-                        net_5d = float(recent.sum())
-                        result["fii_net_cr"]    = round(net_5d / 1e7, 2) \
-                                                   if abs(net_5d) > 1e6 else round(net_5d, 2)
-                        result["fii_sentiment"] = "BUYING" if net_5d > 0 else "SELLING"
-            except Exception:
-                pass
+    @staticmethod
+    def _add_fii_activity(result: dict) -> None:
+        """Five-session FII net flow and BUYING/SELLING sentiment (best effort)."""
+        if not _NSEPY_OK:
+            return
+        try:
+            fii_df = nse_fiidii()
+            if isinstance(fii_df, pd.DataFrame) and not fii_df.empty:
+                # Sum recent FII net activity (last 5 sessions)
+                net_col = next((c for c in fii_df.columns
+                                if "net" in c.lower() and "fii" in c.lower()), None)
+                if not net_col:
+                    net_col = next((c for c in fii_df.columns if "net" in c.lower()), None)
+                if net_col:
+                    recent = fii_df[net_col].dropna().head(5)
+                    net_5d = float(recent.sum())
+                    result["fii_net_cr"]    = round(net_5d / 1e7, 2) \
+                                               if abs(net_5d) > 1e6 else round(net_5d, 2)
+                    result["fii_sentiment"] = "BUYING" if net_5d > 0 else "SELLING"
+        except Exception:  # NSE endpoint flaky
+            pass
 
-        # ── Classify regime ────────────────────────────────────────────────────
+    @staticmethod
+    def _classify_regime(result: dict) -> str:
+        """SIDEWAYS within 1.5% of the 200 DMA; otherwise BULL/BEAR split by VIX (18 / 25)."""
         vix  = result.get("vix") or 15
         pct  = result.get("pct_from_dma200", 0) or 0
-        sl   = result.get("dma200_sl", 0) or 0
 
         if abs(pct) <= 1.5:
-            regime = "SIDEWAYS"
-        elif pct > 1.5:
-            regime = "BULL_VOLATILE" if vix >= 18 else "BULL"
-        else:
-            regime = "BEAR_EXTREME" if vix > 25 else "BEAR"
-
-        result["regime"] = regime
-        return result
+            return "SIDEWAYS"
+        if pct > 1.5:
+            return "BULL_VOLATILE" if vix >= 18 else "BULL"
+        return "BEAR_EXTREME" if vix > 25 else "BEAR"
 
     # ─────────────────────────────────────────────────────────────────────────
     # SECTION 3: HISTORICAL OHLC

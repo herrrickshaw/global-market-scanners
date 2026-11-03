@@ -77,9 +77,17 @@ def _connect():
     return con
 
 
-def create_app():
-    from fastapi import FastAPI, HTTPException, Query
-    app = FastAPI(title="Global Market Scanners API", version="1.0")
+def _run_query(q: str) -> list:
+    """Execute ``q`` on a fresh warehouse connection and return rows as a list of dicts."""
+    con = _connect()
+    try:
+        return con.execute(q).df().to_dict("records")
+    finally:
+        con.close()
+
+
+def _register_query_routes(app, HTTPException, Query) -> None:
+    """Read-only query endpoints: /health, /markets, /ggg, /screen/{name}, /filter."""
 
     @app.get("/health")
     def health():
@@ -87,22 +95,14 @@ def create_app():
 
     @app.get("/markets")
     def markets():
-        con = _connect()
-        try:
-            return con.execute(build_query("markets")).df().to_dict("records")
-        finally:
-            con.close()
+        return _run_query(build_query("markets"))
 
     @app.get("/ggg")
     def ggg(market: str | None = None, limit: int = 25):
-        con = _connect()
-        try:
-            q = build_query("ggg", limit)
-            if market:
-                q = q.replace("WHERE code='GGG'", f"WHERE code='GGG' AND market='{market}'")
-            return con.execute(q).df().to_dict("records")
-        finally:
-            con.close()
+        q = build_query("ggg", limit)
+        if market:
+            q = q.replace("WHERE code='GGG'", f"WHERE code='GGG' AND market='{market}'")
+        return _run_query(q)
 
     @app.get("/screen/{name}")
     def screen(name: str, limit: int = 25):
@@ -110,11 +110,7 @@ def create_app():
             q = build_query(name, limit)
         except KeyError as e:
             raise HTTPException(404, str(e))
-        con = _connect()
-        try:
-            return con.execute(q).df().to_dict("records")
-        finally:
-            con.close()
+        return _run_query(q)
 
     @app.get("/filter")
     def filter_(predicate: str = Query(...), limit: int = 30):
@@ -122,22 +118,22 @@ def create_app():
             pred = validate_predicate(predicate)
         except ValueError as e:
             raise HTTPException(400, str(e))
-        con = _connect()
-        try:
-            q = (f"SELECT c.market, c.ticker, c.D, c.V, c.M, c.composite, c.code, "
-                 f"f.roe, f.de, f.pe FROM dvm_composite c "
-                 f"LEFT JOIN fundamentals f ON c.ticker=f.ticker "
-                 f"WHERE {pred} ORDER BY c.composite DESC LIMIT {int(limit)}")
-            return con.execute(q).df().to_dict("records")
-        finally:
-            con.close()
+        q = (f"SELECT c.market, c.ticker, c.D, c.V, c.M, c.composite, c.code, "
+             f"f.roe, f.de, f.pe FROM dvm_composite c "
+             f"LEFT JOIN fundamentals f ON c.ticker=f.ticker "
+             f"WHERE {pred} ORDER BY c.composite DESC LIMIT {int(limit)}")
+        return _run_query(q)
 
-    # ── watchlist CRUD (versioned) — the write surface, over vcrud ──────────────
+
+def _vc():
+    """Open the versioned-CRUD store -> ``(module, connection)``."""
+    import watchlist_store as vcrud
+    return vcrud, vcrud.connect()
+
+
+def _register_watchlist_routes(app, HTTPException) -> None:
+    """Watchlist CRUD (versioned) — the write surface, over vcrud."""
     from fastapi import Body
-
-    def _vc():
-        import watchlist_store as vcrud
-        return vcrud, vcrud.connect()
 
     @app.get("/watchlists")
     def wl_list():
@@ -204,6 +200,13 @@ def create_app():
         finally:
             con.close()
 
+
+def create_app():
+    """Build the FastAPI app (FastAPI imported lazily so the module imports without it)."""
+    from fastapi import FastAPI, HTTPException, Query
+    app = FastAPI(title="Global Market Scanners API", version="1.0")
+    _register_query_routes(app, HTTPException, Query)
+    _register_watchlist_routes(app, HTTPException)
     return app
 
 

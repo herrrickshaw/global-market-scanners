@@ -167,6 +167,7 @@ def main():
     ap.add_argument("--out", default=None, help="write ticker,capacity_score CSV for meta_screen")
     args = ap.parse_args()
 
+    import marketdata
     markets = (marketdata.market_list()
                if (args.all or not args.market) else [args.market])
 

@@ -81,7 +81,8 @@ def metrics(rets: list) -> dict:
             "sharpe": round(sharpe, 2), "max_dd%": round(dd, 1)}
 
 
-def main():
+def _parse_args():
+    """CLI arguments (flags unchanged)."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--years", type=int, default=5)
     ap.add_argument("--universe", choices=["builtin", "scan"], default="builtin",
@@ -90,15 +91,20 @@ def main():
     ap.add_argument("--min-dollar-vol", type=float, default=2e6,
                     help="liquidity filter: min median daily $-volume (default $2M)")
     ap.add_argument("--db", default="pit_backtest.db")
-    args = ap.parse_args()
+    return ap.parse_args()
 
+
+def _load_series(args):
+    """OHLC via the Cassandra-backed cache -> ``(closes, liquidity)`` keyed by ticker.
+
+    Served locally after the first run (falls back to yfinance if Cassandra is down).
+    ``liquidity`` is the median daily $-volume over the last ~1y.
+    """
     if args.universe == "scan":
         tickers = load_scan_universe(args.limit)
     else:
         tickers = UNIVERSE[:(args.limit or len(UNIVERSE))]
 
-    # OHLC via the Cassandra-backed cache — served locally after the first run
-    # (falls back to yfinance automatically if Cassandra is down).
     from market_store import cached_download
     ohlc = cached_download(tickers, years=args.years)
     closes, liq = {}, {}
@@ -109,61 +115,87 @@ def main():
                 closes[t] = s
                 dv = (df["Close"] * df["Volume"]).dropna()   # daily $-volume
                 liq[t] = float(dv.tail(252).median())        # median over last ~1y
-        except Exception:
+        except Exception:  # malformed frame for one ticker: skip it
             continue
     print(f"{len(closes)} usable series", file=sys.stderr, flush=True)
+    return closes, liq
 
-    # ── liquidity filter ──────────────────────────────────────────────────────
+
+def _liquidity_filter(closes: dict, liq: dict, min_dollar_vol: float) -> dict:
+    """Keep names whose median daily $-volume is at least ``min_dollar_vol``."""
     n_before = len(closes)
-    closes = {t: s for t, s in closes.items() if liq.get(t, 0) >= args.min_dollar_vol}
-    print(f"liquidity filter (median $-vol >= ${args.min_dollar_vol:,.0f}/day): "
+    closes = {t: s for t, s in closes.items() if liq.get(t, 0) >= min_dollar_vol}
+    print(f"liquidity filter (median $-vol >= ${min_dollar_vol:,.0f}/day): "
           f"{n_before} -> {len(closes)} tradeable names", file=sys.stderr, flush=True)
+    return closes
 
-    # monthly rebalance dates = first trading day of each month, need next month for return
+
+def _rebalance_dates(closes: dict) -> list:
+    """First trading day of each month, from the first date with a full breakout lookback."""
     all_idx = sorted(set().union(*[s.index for s in closes.values()]))
     cal = pd.Series(1, index=pd.DatetimeIndex(all_idx))
     rebal = cal.resample("MS").first().index
-    rebal = [d for d in rebal if d >= pd.Timestamp(all_idx[BREAKOUT_LB + 1])]
+    return [d for d in rebal if d >= pd.Timestamp(all_idx[BREAKOUT_LB + 1])]
 
+
+def _forward_returns(closes: dict, t0, t1):
+    """Month forward returns (%) per ticker plus the tickers breaking out at ``t0``.
+
+    Returns ``(breakout, held, fwd_by_tkr)``; ``t0``/``t1`` snap back to trading days.
+    """
+    breakout, held = [], []
+    fwd_by_tkr = {}
+    for tkr, s in closes.items():
+        idx = s.index
+        e0 = idx[idx.get_indexer([t0], method="ffill")[0]] if len(idx[idx <= t0]) else None
+        e1 = idx[idx.get_indexer([t1], method="ffill")[0]] if len(idx[idx <= t1]) else None
+        if e0 is None or e1 is None or e0 >= e1:
+            continue
+        fwd = (s.loc[e1] / s.loc[e0] - 1) * 100
+        if not np.isfinite(fwd):
+            continue                       # skip gaps / zero-price inf (was poisoning the mean)
+        fwd_by_tkr[tkr] = fwd
+        held.append(fwd)
+        if darvas_breakout(s, e0):
+            breakout.append(tkr)
+    return breakout, held, fwd_by_tkr
+
+
+def _select_arms(breakout: list, closes: dict, t0, d: str):
+    """Apply the point-in-time gates to the breakout list -> ``(selA, selB, selC)``.
+
+    A = Darvas breakout, B = A and Piotroski F >= 7, C = B and Coffee Can (Triple-Hit).
+    """
+    selA, selB, selC = [], [], []
+    for tkr in breakout:
+        selA.append(tkr)
+        F, _ = piotroski_asof(tkr, d)
+        if F is not None and F >= 7:
+            selB.append(tkr)
+            mcap = None
+            dd = as_of(tkr, d)
+            if dd and dd.get("shares"):
+                mcap = closes[tkr].loc[closes[tkr].index[closes[tkr].index <= t0][-1]] * dd["shares"]
+            cc, _ = coffeecan_asof(tkr, d, mktcap=mcap)
+            if cc:
+                selC.append(tkr)
+    return selA, selB, selC
+
+
+def _simulate(closes: dict, rebal: list):
+    """Monthly rebalance loop -> ``(arms, picks_log)`` of net monthly returns and pick counts."""
     arms = {"A_darvas": [], "B_darvas_F7": [], "C_triple_hit": [], "BENCH_all": []}
     picks_log = {"A_darvas": [], "B_darvas_F7": [], "C_triple_hit": []}
 
     for i in range(len(rebal) - 1):
         t0, t1 = rebal[i], rebal[i + 1]
-        # snap to actual trading days
-        breakout, held = [], []
-        fwd_by_tkr = {}
-        for tkr, s in closes.items():
-            idx = s.index
-            e0 = idx[idx.get_indexer([t0], method="ffill")[0]] if len(idx[idx <= t0]) else None
-            e1 = idx[idx.get_indexer([t1], method="ffill")[0]] if len(idx[idx <= t1]) else None
-            if e0 is None or e1 is None or e0 >= e1:
-                continue
-            fwd = (s.loc[e1] / s.loc[e0] - 1) * 100
-            if not np.isfinite(fwd):
-                continue                       # skip gaps / zero-price inf (was poisoning the mean)
-            fwd_by_tkr[tkr] = fwd
-            held.append(fwd)
-            if darvas_breakout(s, e0):
-                breakout.append(tkr)
+        breakout, held, fwd_by_tkr = _forward_returns(closes, t0, t1)
 
         if held:
             arms["BENCH_all"].append(float(np.mean(held)) - US_COST)
 
         d = t0.date().isoformat()
-        selA, selB, selC = [], [], []
-        for tkr in breakout:
-            selA.append(tkr)
-            F, _ = piotroski_asof(tkr, d)
-            if F is not None and F >= 7:
-                selB.append(tkr)
-                mcap = None
-                dd = as_of(tkr, d)
-                if dd and dd.get("shares"):
-                    mcap = closes[tkr].loc[closes[tkr].index[closes[tkr].index <= t0][-1]] * dd["shares"]
-                cc, _ = coffeecan_asof(tkr, d, mktcap=mcap)
-                if cc:
-                    selC.append(tkr)
+        selA, selB, selC = _select_arms(breakout, closes, t0, d)
         for arm, sel in (("A_darvas", selA), ("B_darvas_F7", selB), ("C_triple_hit", selC)):
             vals = [fwd_by_tkr[x] for x in sel if x in fwd_by_tkr]
             if vals:
@@ -171,20 +203,38 @@ def main():
                 picks_log[arm].append(len(vals))
         print(f"  {d}: breakouts={len(selA)} F7={len(selB)} triple={len(selC)}",
               file=sys.stderr, flush=True)
+    return arms, picks_log
 
+
+def _summarise(arms: dict, picks_log: dict) -> pd.DataFrame:
+    """One metrics row per arm."""
     rows = []
     for arm, rets in arms.items():
         m = metrics(rets)
         m["arm"] = arm
         m["avg_picks"] = round(np.mean(picks_log.get(arm, [0]) or [0]), 1) if arm in picks_log else "all"
         rows.append(m)
-    res = pd.DataFrame(rows)[["arm", "n_months", "avg_picks", "avg_mth%",
-                              "ann_return%", "hit_rate%", "sharpe", "max_dd%"]]
+    return pd.DataFrame(rows)[["arm", "n_months", "avg_picks", "avg_mth%",
+                               "ann_return%", "hit_rate%", "sharpe", "max_dd%"]]
 
-    conn = sqlite3.connect(args.db)
+
+def _save_summary(res: pd.DataFrame, db_path: str) -> None:
+    """Write the arm summary table to sqlite (DELETE journal, per the macOS SQLite hazard)."""
+    conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA journal_mode=DELETE;")
     res.to_sql("arm_summary", conn, if_exists="replace", index=False)
     conn.commit(); conn.close()
+
+
+def main():
+    """Run the monthly PIT backtest of the Darvas / F>=7 / Triple-Hit arms and store the summary."""
+    args = _parse_args()
+    closes, liq = _load_series(args)
+    closes = _liquidity_filter(closes, liq, args.min_dollar_vol)
+    rebal = _rebalance_dates(closes)
+    arms, picks_log = _simulate(closes, rebal)
+    res = _summarise(arms, picks_log)
+    _save_summary(res, args.db)
 
     print("\n=== TRIPLE-HIT vs GATE COMPONENTS — 5y US, net of cost ===")
     print(res.to_string(index=False))

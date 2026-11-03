@@ -63,3 +63,6 @@ page-*.jpg
 mp-*.jpg
 node_modules/
 graphify-out/cache/stat-index.json
+.venv/
+.ruff_cache/
+.pytest_cache/
