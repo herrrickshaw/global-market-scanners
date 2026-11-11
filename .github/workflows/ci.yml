@@ -20,7 +20,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install test dependencies
-        run: pip install -q pytest pandas numpy scipy scikit-learn requests
+        run: pip install -q pytest pandas numpy scipy scikit-learn requests duckdb
 
       - name: Unit tests (SDLC Testing phase)
         run: python -m pytest tests/ -q
