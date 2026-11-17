@@ -178,7 +178,7 @@ def main():
     df = df.sort_values(["segment", "country", "company_name"]).reset_index(drop=True)
 
     out1 = os.path.join(HERE, "companies_industry.parquet")
-    df.to_parquet(out1, index=False, compression="snappy")
+    df.to_parquet(out1, index=False, compression="zstd", compression_level=19)
 
     # segment-level table
     seg = (df.groupby("segment")
@@ -188,7 +188,7 @@ def main():
              .reset_index()
              .sort_values("n_companies", ascending=False))
     out2 = os.path.join(HERE, "industry_segments.parquet")
-    seg.to_parquet(out2, index=False, compression="snappy")
+    seg.to_parquet(out2, index=False, compression="zstd", compression_level=19)
 
     # report
     classified = (df["segment"] != "Unclassified").sum()
