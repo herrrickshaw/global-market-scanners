@@ -87,6 +87,7 @@ def monotonicity(curve: pd.DataFrame, col: str = "median_fwd%") -> float:
 
 
 # ── data assembly (offline, point-in-time) ────────────────────────────────────
+import marketdata
 from marketdata import wide as _wide
 
 
