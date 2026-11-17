@@ -345,7 +345,7 @@ def pct_change(new: float, old: float) -> Optional[float]:
 
 def cagr(latest: float, earliest: float, years: int) -> Optional[float]:
     """Compound annual growth rate %. Used by Coffee Can across scripts."""
-    if not latest or not earliest or earliest <= 0 or years < 1:
+    if not latest or not earliest or earliest <= 0 or latest < 0 or years < 1:
         return None
     return ((latest / earliest) ** (1 / years) - 1) * 100
 

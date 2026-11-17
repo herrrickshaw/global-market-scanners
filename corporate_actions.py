@@ -136,6 +136,7 @@ def detect_rights(close, volume, market_ret, dates=None) -> list:
 
 
 # ── data assembly (offline) ───────────────────────────────────────────────────
+import marketdata
 from marketdata import close_volume as _wide
 
 

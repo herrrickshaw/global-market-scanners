@@ -44,7 +44,9 @@ QUERY_CATALOG = {
 # tokens allowed in an ad-hoc filter predicate (columns, numbers, operators)
 _ALLOWED_COLS = {"roe", "de", "pe", "pb", "D", "V", "M", "composite", "roa",
                  "rev_growth", "earn_growth", "op_margin", "div_yield", "mktcap"}
-_PRED_RE = re.compile(r"^[\w\s\.><=!()]+(and|or|[\w\s\.><=!()])*$", re.IGNORECASE)
+# Same accepted language as before ("and"/"or" are word characters), without the
+# nested (and|or|[...])* group that backtracked exponentially on a bad trailing char.
+_PRED_RE = re.compile(r"^[\w\s\.><=!()]+$")
 
 
 def build_query(name: str, limit: int = 25) -> str:

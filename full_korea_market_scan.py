@@ -197,9 +197,15 @@ def compute_darvas_box(df: pd.DataFrame, confirm: int = DARVAS_CONFIRM) -> dict:
     if df is None or df.empty or len(df) < confirm + 5:
         return {"signal": "INSUFFICIENT_DATA", "box_top": None, "box_bottom": None}
 
-    highs  = pd.to_numeric(df["High"],  errors="coerce").fillna(0).tolist()
-    lows   = pd.to_numeric(df["Low"],   errors="coerce").fillna(0).tolist()
-    closes = pd.to_numeric(df["Close"], errors="coerce").fillna(0).tolist()
+    # Drop bars with a missing High/Low/Close instead of zero-filling them: a
+    # zero-filled latest close reads as price 0 -> false BREAKDOWN_SELL.
+    ohlc = pd.DataFrame({k: pd.to_numeric(df[k], errors="coerce")
+                         for k in ("High", "Low", "Close")}).dropna()
+    if len(ohlc) < confirm + 5:
+        return {"signal": "INSUFFICIENT_DATA", "box_top": None, "box_bottom": None}
+    highs  = ohlc["High"].tolist()
+    lows   = ohlc["Low"].tolist()
+    closes = ohlc["Close"].tolist()
 
     current = closes[-1]
     h = highs[:-1]   # exclude current bar from box formation
