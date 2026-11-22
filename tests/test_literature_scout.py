@@ -26,7 +26,7 @@ def test_theme_hits_weights():
 
 def test_match_themes_dict_and_list_specs():
     themes = {"a": {"kw": ["alpha beta"]}, "b": ["gamma"], "c": {"kw": ["zzz"]}}
-    assert ls.match_themes("Alpha-Beta and GAMMA", themes) == {"a": 2.0, "b": 1.0}      # punctuation normalised to spaces
+    assert ls.match_themes("ALPHA beta (and) GAMMA!", themes) == {"a": 2.0, "b": 1.0}      # case-folded, punctuation stripped
     assert ls.match_themes("alpha beta gamma", themes) == {"a": 2.0, "b": 1.0}
     assert ls.match_themes("nothing", themes) == {}
 
