@@ -73,7 +73,7 @@ def test_collect_all_countries(scans):
     assert (a.company_name, a.exchange, a.sector, a.industry, a.code) == ("Apple Inc", "NASDAQ", "Tech",
                                                                          "Consumer Electronics", "AAPL")
     z = df.loc[("USA", "ZZZ")]                                   # not in summary -> symbol as name, "US" exchange
-    assert z.company_name == "ZZZ" and z.exchange == "US" and pd.isna(z.industry) or z.industry is None
+    assert z.company_name == "ZZZ" and z.exchange == "US" and pd.isna(z.industry)
     assert df.loc[("India", "TCS.NS")].exchange == "NSE" and df.loc[("India", "RELIANCE.BO")].exchange == "BSE"
     assert df.loc[("India", "FOO.XX")].exchange == "IN"
     assert df.loc[("India", "TCS.NS")].company_name == "TCS"
@@ -83,7 +83,7 @@ def test_collect_all_countries(scans):
     assert df.loc[("South Korea", "000660.KS")].exchange == "KRX"          # blank market -> KRX
     assert df.loc[("South Korea", "000660.KS")].company_name == "000660"   # missing name -> code
     e = df.loc[("Europe", "ADS.DE")]
-    assert e.company_name == "Adidas" and e.exchange == "EU" and e.sector is None
+    assert e.company_name == "Adidas" and e.exchange == "EU" and pd.isna(e.sector)
 
 
 def test_collect_skips_missing_scan(monkeypatch, capsys):
@@ -122,7 +122,7 @@ def test_merge_cache_ignores_empty_enrichment(monkeypatch, tmp_path):
     monkeypatch.setattr(bp, "HERE", str(tmp_path))
     (tmp_path / "industry_cache.json").write_text(json.dumps({"A.NS": {"sector": None, "industry": None}}))
     out = bp.merge_cache(_base_df())
-    assert out.iloc[0].sector is None and out.iloc[0].industry is None
+    assert pd.isna(out.iloc[0].sector) and pd.isna(out.iloc[0].industry)
 
 
 def test_main_builds_outputs(monkeypatch, tmp_path, capsys):
