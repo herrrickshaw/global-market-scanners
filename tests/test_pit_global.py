@@ -168,3 +168,8 @@ def test_main_nothing_to_save(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(sys, "argv", ["pit_global.py", "--db", str(db)])
     pg.main()
     assert not db.exists()
+
+
+def test_run_market_runs_with_exactly_20_series(monkeypatch):
+    monkeypatch.setattr(pg, "load_closes", lambda m, y: _closes(20))
+    assert not pg.run_market("US", 5, False).empty

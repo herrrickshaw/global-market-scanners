@@ -297,3 +297,9 @@ def test_main_heuristic_and_yf_and_rights(monkeypatch, capsys):
     _main(monkeypatch, "--heuristic", "--action", "both")
     out = capsys.readouterr().out
     assert "0 candidate events" in out and "0 candidate ex-dates" in out
+
+
+def test_detect_splits_volume_exactly_at_multiplier():
+    c, v = _series(vol_mult=1.3)
+    assert len(ca.detect_splits(c, v)) == 1
+

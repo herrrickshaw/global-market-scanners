@@ -177,3 +177,7 @@ def test_main_no_eligible_names(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["hs", "--archetype", "stat_arb"])
     hs.main()
     assert " inf " in capsys.readouterr().out                                        # infinite half-life printed as inf
+
+
+def test_corwin_schultz_two_bars_is_enough():
+    assert not np.isnan(hs.corwin_schultz_spread([10.5, 10.5], [9.5, 9.5]))

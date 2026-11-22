@@ -201,3 +201,20 @@ def test_main_us_without_facts_has_no_valuation(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "pit_fundamentals", mod)
     rows = _run_main(monkeypatch, tmp_path, ["X"], ohlc, "--market", "US")
     assert rows[0][2] is None and rows[0][3] is None
+
+
+def test_momentum_exactly_220_rows_is_scored():
+    assert not np.isnan(dv.momentum_score(_ohlcv(220, noise=1.0)))
+
+
+def test_main_valuation_exactly_50_counts_as_good(monkeypatch, tmp_path):
+    ohlc = {t: _ohlcv(300, slope=0.5, noise=1.0) for t in ("CHEAP", "DEAR")}
+    price = float(ohlc["CHEAP"]["Close"].iloc[-1])
+    facts = {"CHEAP": _fund(ni=[10.0 * price], shares=10.0), "DEAR": _fund(ni=[1.0 * price], shares=10.0)}
+    mod = types.ModuleType("pit_fundamentals")
+    mod.as_of = lambda t, d: facts[t]
+    mod.piotroski_asof = lambda t, d: (9, {})
+    mod._g = lambda lst, i=0: lst[i] if lst and len(lst) > i else None
+    monkeypatch.setitem(sys.modules, "pit_fundamentals", mod)
+    rows = {r[0]: r for r in _run_main(monkeypatch, tmp_path, list(ohlc), ohlc, "--market", "US")}
+    assert rows["DEAR"][3] == 50.0 and rows["DEAR"][5][1] == "G"
