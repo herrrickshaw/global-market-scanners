@@ -9,8 +9,6 @@ omit =
     notebooks/*
     graphify-out/*
     scripts/*
-    # live NSE website client (cookie-primed HTTP session against nseindia.com endpoints); every method is a network call
-    nse_data_fetcher.py
 
 [report]
 exclude_lines =

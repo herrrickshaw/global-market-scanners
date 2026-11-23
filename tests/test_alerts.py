@@ -203,3 +203,9 @@ def test_main_history_lists_snapshots(state, monkeypatch, capsys):
     _run(monkeypatch, "--history")
     out = capsys.readouterr().out
     assert "L_2026-01-01.json" in out and "3 names" in out
+
+
+def test_format_alert_dropped_list_truncated_to_40():
+    d = alerts.diff_sets({f"T{i:03d}" for i in range(50)}, set())
+    line = alerts.format_alert(d, "l", "d").split("\n")[1]
+    assert line.startswith("  DROPPED: ") and line.count(",") == 39

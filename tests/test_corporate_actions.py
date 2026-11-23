@@ -303,3 +303,10 @@ def test_detect_splits_volume_exactly_at_multiplier():
     c, v = _series(vol_mult=1.3)
     assert len(ca.detect_splits(c, v)) == 1
 
+
+
+def test_detect_rights_market_margin_exactly_at_threshold():
+    c, v = _rights_series(drop=-0.125)           # exact binary fractions: (-0.045) - (-0.125) == 0.08 exactly
+    m = np.zeros(40); m[30] = -0.045
+    assert (m[30] - (c[30] / c[29] - 1)) == ca.RIGHTS_MKT_MARGIN
+    assert len(ca.detect_rights(c, v, m)) == 1   # margin must be strictly LESS than the threshold to be rejected
