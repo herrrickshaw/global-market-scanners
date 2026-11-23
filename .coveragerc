@@ -1,0 +1,16 @@
+[run]
+source = .
+omit =
+    tests/*
+    */tests/*
+    conftest.py
+    test_*.py
+    docs/*
+    notebooks/*
+    graphify-out/*
+    scripts/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
