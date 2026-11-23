@@ -384,3 +384,29 @@ def test_get_cache_singleton_and_warm_cache(mc, monkeypatch, capsys):
     calls.clear()
     mc.warm_cache(["A"], index_tickers=["^X"])
     assert calls[0] == ("idx", "^X") and len(calls) == 3
+
+
+def test_stale_boundary_uses_strict_greater_than(mc, monkeypatch):
+    c = mc.MarketCache(verbose=False)
+    fixed = datetime(2026, 1, 2, 12, 0, 0)
+
+    class D(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed
+    monkeypatch.setattr(mc, "datetime", D)
+    c._meta["k"] = {"updated": (fixed - timedelta(hours=20)).isoformat()}
+    assert c._is_stale("k", 20) is False                                              # exactly the limit is still fresh
+    c._meta["k"] = {"updated": (fixed - timedelta(hours=20, seconds=1)).isoformat()}
+    assert c._is_stale("k", 20) is True
+
+
+def test_get_ohlc_no_download_when_next_start_is_today(mc):
+    yesterday = pd.Timestamp(date.today()) - pd.Timedelta(days=1)
+    mc.yf_fake.data["AAA"] = _bars(10, end=yesterday)
+    c = mc.MarketCache(verbose=False)
+    c.get_ohlc("AAA")
+    c._meta["ohlc:AAA"]["updated"] = (datetime.now() - timedelta(hours=48)).isoformat()
+    c._meta["ohlc:AAA"]["to"] = str(date.today() - timedelta(days=1))
+    n = len(mc.yf_fake.calls)
+    assert len(c.get_ohlc("AAA")) == 10 and len(mc.yf_fake.calls) == n                 # start == today -> nothing to fetch

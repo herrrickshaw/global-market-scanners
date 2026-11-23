@@ -390,3 +390,34 @@ def test_module_helpers(f, monkeypatch):
     assert nd.get_institutional_confirmation("TCS") is False
     monkeypatch.setattr(a, "get_bulk_deals", lambda: pd.DataFrame({"x": [1]}))
     assert nd.get_institutional_confirmation("TCS") is False
+
+
+def test_symbol_universe_threshold_is_more_than_100(f, monkeypatch):
+    monkeypatch.setattr(nd, "_NSEPY_OK", True)
+    monkeypatch.setattr(nd, "nse_eq_symbols", lambda: [f"S{i}" for i in range(100)])
+    monkeypatch.setitem(sys.modules, "nse", None)
+    assert len(f.get_all_symbols()) == 50                                          # exactly 100 is rejected -> Nifty-50 fallback
+    f2 = nd.NSEDataFetcher()
+    monkeypatch.setattr(nd, "nse_eq_symbols", lambda: [f"S{i}" for i in range(101)])
+    assert len(f2.get_all_symbols()) == 101
+
+
+def test_bulk_min_30_bars_inclusive(f):
+    f.yf.frame = _multi({"A.NS": _px(30), "B.NS": _px(29)})
+    assert set(f.get_ohlc_bulk(["A", "B"])) == {"A"}
+
+
+def test_regime_sideways_band_inclusive(f, monkeypatch):
+    n = 250
+    idx = pd.bdate_range(end="2026-11-20", periods=n)
+    close = np.full(n, 8.0)
+    close[-1] = 8.0 + 0.0                                                           # make the last bar sit exactly 1.5% above its mean
+    # mean of 200 values: 199*8 + x = 200*m ; want (x - m)/m == 0.015  ->  x = m*1.015 ; solve m = 8*199/(200-1.015)
+    m = 8.0 * 199 / (200 - 1.015)
+    close[-1] = m * 1.015
+    f.yf.frame = _multi({"^NSEI": pd.DataFrame({"Open": close, "High": close, "Low": close, "Close": close, "Volume": 1.0}, index=idx)})
+    monkeypatch.setattr(nd, "nse_get_index_quote", lambda s: None)
+    monkeypatch.setattr(nd, "indiavix", lambda: 14.0)
+    monkeypatch.setattr(nd, "nse_fiidii", lambda: None)
+    r = f.get_regime()
+    assert abs(r["pct_from_dma200"]) == pytest.approx(1.5, abs=0.01) and r["regime"] == "SIDEWAYS"

@@ -319,3 +319,35 @@ def test_main_multi_screen_and_triple(monkeypatch, tmp_path, capsys):
     out = capsys.readouterr().out
     assert r["triple_hits"] and r["six_screen_hits"][0]["Screens_Passed"] >= 5 and "Top Multi-Screen Hits" in out
     assert r["six_screen_hits"][0].get("ML_Confirmed") is None                        # ML disabled
+
+
+def test_parse_symbol_length_boundary():
+    text = "Symbol|Name\nABCDE|x\nABCDEF|x\n"
+    assert us._parse_nasdaq_file(text) == ["ABCDE"]                                 # 5 chars allowed, 6 dropped
+
+
+def test_symbol_cache_exact_ttl_boundary(monkeypatch, tmp_path):
+    monkeypatch.setattr(us, "_SYMBOL_CACHE", tmp_path / "c.json")
+    (tmp_path / "c.json").write_text(json.dumps({"ts": 1000.0, "nasdaq": ["A"], "nyse": []}))
+    monkeypatch.setattr(us.time, "time", lambda: 1000.0 + us.SYMBOL_CACHE_TTL)
+    assert us._load_symbol_cache() == (None, None)                                  # age == TTL is already expired
+    monkeypatch.setattr(us.time, "time", lambda: 1000.0 + us.SYMBOL_CACHE_TTL - 1)
+    assert us._load_symbol_cache() == (["A"], [])
+
+
+def test_main_price_floor_is_inclusive_and_three_screens_is_a_hit(monkeypatch, tmp_path, capsys):
+    idx = pd.bdate_range(end="2026-11-20", periods=260)
+    flat = pd.DataFrame({"Open": 1.0, "High": 1.0, "Low": 1.0, "Close": 1.0, "Volume": 1e6}, index=idx)
+    up = _uptrend()
+    fund = lambda sym: {"name": "G", "sector": "T", "f_score": 8, "f_strong": True, "qualifies_cc": True, "cc_score": "6/6",
+                        "qualifies_mf": False, "qualifies_bc": False, "error": ""}
+    saved = _setup_main(monkeypatch, tmp_path, ["FLAT", "UP"], {"FLAT": flat, "UP": up}, fund)
+    monkeypatch.setattr(us, "compute_darvas_box", lambda df: {"signal": "IN_BOX", "box_top": 5, "box_bottom": 1})
+    r = us.main(min_price=1.0, workers=1)
+    assert r["total_scanned"] == 2                                                   # LTP == min_price is kept
+    six = saved["args"][4]
+    flat_hit = [x for x in six if x["Symbol"] == "FLAT"]
+    # FLAT: darvas not a breakout, GC state BELOW/ABOVE...: exactly Piotroski + CoffeeCan (+ maybe above-200DMA)
+    assert all(x["Screens_Passed"] >= 3 for x in six) and {x["Symbol"] for x in six} == {"UP"} | ({"FLAT"} if flat_hit else set())
+    up_hit = next(x for x in six if x["Symbol"] == "UP")
+    assert up_hit["Screens_Passed"] == 3                                             # above-200DMA + Piotroski + CC: threshold is >= 3
