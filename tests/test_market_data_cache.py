@@ -170,7 +170,7 @@ def test_get_ohlc_incremental_update(mc, capsys):
     c._meta["ohlc:AAA"]["updated"] = (datetime.now() - timedelta(hours=48)).isoformat()
     mc.yf_fake.data["AAA"] = pd.DataFrame()
     n = len(mc.yf_fake.calls)
-    assert len(c.get_ohlc("AAA")) == len(out) and len(mc.yf_fake.calls) == n + 1     # nothing new -> existing returned
+    assert len(c.get_ohlc("AAA")) == len(out) and len(mc.yf_fake.calls) == n     # already current through today -> no download
 
 
 def test_get_ohlc_stale_but_up_to_date_skips_download(mc):
